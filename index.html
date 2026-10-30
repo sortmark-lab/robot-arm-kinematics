@@ -1,0 +1,3287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SORTMARK | 7-DoF & 6-DoF Spatial Robotics Kinematics Simulator</title>
+  <meta name="description" content="Interactive 7-Axis and 6-Axis Robotic Arm Kinematics and Spatial Simulation Simulator by SORTMARK.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-deep: #050811;
+      --bg-panel: rgba(9, 14, 24, 0.94);
+      --border-dim: rgba(255,255,255,0.08);
+      --border-focus: rgba(56,189,248,0.5);
+      --text-primary: #e8edf5;
+      --text-secondary: #8899b0;
+      --accent-cyan: #38bdf8;
+      --accent-green: #22d3a0;
+      --accent-amber: #f59e0b;
+      --accent-purple: #a855f7;
+      --accent-red: #ef4444;
+      --accent-gold: #facc15;
+    }
+    body { background: var(--bg-deep); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; overflow: hidden; display: flex; height: 100vh; user-select: none; }
+    #viewport-container { flex: 1; position: relative; background: radial-gradient(ellipse at 50% 30%, #1e2a3e 0%, #050811 100%); }
+    #canvas3d { width: 100%; height: 100%; display: block; }
+
+    /* Top Toolbar (Compact Glassmorphic Non-Overflowing) */
+    .top-toolbar { position: absolute; top: 14px; left: 14px; display: flex; align-items: center; gap: 8px; background: var(--bg-panel); backdrop-filter: blur(20px); border: 1px solid var(--border-dim); padding: 5px 12px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); z-index: 30; flex-wrap: nowrap; }
+    .brand { font-size: 0.84rem; font-weight: 700; background: linear-gradient(120deg, #38bdf8 0%, #818cf8 60%, #a78bfa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; white-space: nowrap; flex-shrink: 0; padding-right: 4px; }
+    .toolbar-sep { width: 1px; height: 20px; background: var(--border-dim); flex-shrink: 0; }
+
+    /* Glassmorphic Dropdown System */
+    .dropdown { position: relative; display: inline-block; flex-shrink: 0; }
+    .dropdown-btn { display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.65); border: 1px solid var(--border-dim); color: var(--text-primary); padding: 5px 11px; border-radius: 7px; font-size: 0.72rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.18s ease; white-space: nowrap; }
+    .dropdown-btn:hover { background: rgba(30, 41, 59, 0.9); border-color: var(--accent-cyan); color: #fff; }
+    .dropdown.open .dropdown-btn { background: rgba(30, 41, 59, 0.95); border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); }
+    .dropdown-arrow { font-size: 0.62rem; color: var(--text-secondary); transition: transform 0.2s ease; margin-left: 2px; }
+    .dropdown.open .dropdown-arrow { transform: rotate(180deg); }
+    .dropdown-menu { display: none; position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background: rgba(11, 17, 30, 0.96); backdrop-filter: blur(24px); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 9px; padding: 6px; box-shadow: 0 16px 36px rgba(0,0,0,0.85); z-index: 100; flex-direction: column; gap: 3px; }
+    .dropdown.open .dropdown-menu { display: flex; animation: fadeInDown 0.18s cubic-bezier(0.4, 0, 0.2, 1); }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .dropdown-item { padding: 7px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all 0.15s ease; white-space: nowrap; display: flex; align-items: center; justify-content: space-between; text-decoration: none; border: 1px solid transparent; }
+    .dropdown-item:hover { background: rgba(56, 189, 248, 0.15); color: #fff; border-color: rgba(56, 189, 248, 0.3); }
+    .dropdown-item.active { background: linear-gradient(135deg, rgba(56,189,248,0.25) 0%, rgba(99,102,241,0.25) 100%); color: var(--accent-cyan); font-weight: 600; border-color: rgba(56, 189, 248, 0.4); }
+    .dropdown-divider { height: 1px; background: var(--border-dim); margin: 4px 0; }
+    .dropdown-header-label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); padding: 4px 8px 2px; }
+
+    /* Collapsible Details Cards */
+    details.card.collapsible { transition: all 0.2s ease; }
+    details.card.collapsible summary { list-style: none; cursor: pointer; outline: none; user-select: none; display: flex; justify-content: space-between; align-items: center; }
+    details.card.collapsible summary::-webkit-details-marker { display: none; }
+    details.card.collapsible summary .chevron { font-size: 0.72rem; transition: transform 0.2s ease; color: var(--text-secondary); }
+    details.card.collapsible[open] summary .chevron { transform: rotate(180deg); }
+    details.card.collapsible .details-content { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-dim); }
+
+    /* Floating Specs Overlay */
+    #spec-overlay { position: absolute; top: 68px; left: 16px; background: var(--bg-panel); backdrop-filter: blur(20px); border: 1px solid var(--border-dim); border-radius: 10px; padding: 12px 14px; z-index: 20; width: 240px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+    .spec-title { font-size: 0.62rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-cyan); margin-bottom: 9px; display: flex; justify-content: space-between; align-items: center; }
+    .spec-badge { background: rgba(56,189,248,0.15); color: var(--accent-cyan); padding: 1px 5px; border-radius: 4px; font-size: 0.55rem; }
+    .spec-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.68rem; }
+    .spec-key { color: var(--text-secondary); }
+    .spec-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text-primary); font-size: 0.66rem; }
+    .spec-divider { height: 1px; background: var(--border-dim); margin: 7px 0; }
+
+    /* PiP Director Monitor */
+    #pip-monitor { position: absolute; bottom: 20px; left: 16px; width: 260px; height: 160px; background: #000; border: 1px solid rgba(56,189,248,0.4); border-radius: 8px; overflow: hidden; z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
+    #pip-header { position: absolute; top: 6px; left: 8px; font-size: 0.6rem; background: rgba(0,0,0,0.75); padding: 2px 6px; border-radius: 4px; color: var(--accent-cyan); font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 5px; z-index: 2; }
+    .rec-dot { width: 5px; height: 5px; background: var(--accent-red); border-radius: 50%; animation: blink 1.2s ease infinite alternate; }
+    @keyframes blink { from { opacity: 0.25; } to { opacity: 1; } }
+    #pip-canvas { width: 100%; height: 100%; display: block; }
+
+    /* Component Tooltip Callout */
+    #part-callout { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--bg-panel); backdrop-filter: blur(24px); border: 1px solid var(--accent-cyan); border-radius: 10px; padding: 10px 16px; z-index: 25; pointer-events: none; opacity: 0; transition: opacity 0.2s ease; max-width: 420px; box-shadow: 0 12px 36px rgba(0,0,0,0.8); }
+    #part-callout.show { opacity: 1; }
+    .callout-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .callout-title { font-size: 0.78rem; font-weight: 700; color: var(--accent-cyan); }
+    .callout-tag { font-size: 0.58rem; background: rgba(56,189,248,0.15); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; }
+    .callout-desc { font-size: 0.68rem; color: var(--text-secondary); line-height: 1.45; }
+
+    /* Sidebar */
+    #sidebar { width: 400px; background: var(--bg-panel); backdrop-filter: blur(24px); border-left: 1px solid var(--border-dim); display: flex; flex-direction: column; height: 100%; z-index: 10; }
+    .panel-header { padding: 16px 20px 13px; border-bottom: 1px solid var(--border-dim); display: flex; justify-content: space-between; align-items: center; }
+    .panel-title { font-size: 0.88rem; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+    .status-pill { font-size: 0.63rem; font-weight: 600; color: var(--accent-green); background: rgba(34,211,160,0.1); border: 1px solid rgba(34,211,160,0.3); padding: 3px 8px; border-radius: 10px; display: flex; align-items: center; gap: 4px; }
+    .status-pill::before { content:''; width: 5px; height: 5px; background: var(--accent-green); border-radius: 50%; animation: blink 2s ease infinite; }
+    .scroll-content { flex: 1; padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .scroll-content::-webkit-scrollbar { width: 3px; }
+    .scroll-content::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+
+    .card { background: rgba(15,23,42,0.6); border: 1px solid var(--border-dim); border-radius: 10px; padding: 12px 14px; }
+    .card-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 9px; display: flex; justify-content: space-between; align-items: center; }
+    .tele-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 10px; }
+    .tele-item { display: flex; flex-direction: column; gap: 2px; }
+    .tele-key { font-size: 0.65rem; color: var(--text-secondary); }
+    .tele-val { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 600; color: var(--accent-cyan); }
+    .tele-val.green { color: var(--accent-green); }
+    .tele-val.amber { color: var(--accent-amber); }
+
+    .torque-item { display: flex; align-items: center; gap: 7px; font-size: 0.67rem; margin-bottom: 5px; }
+    .torque-label { color: var(--text-secondary); width: 26px; }
+    .torque-bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+    .torque-bar-fill { height: 100%; border-radius: 2px; transition: width 0.25s ease; }
+    .torque-nm { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-primary); width: 48px; text-align: right; }
+
+    .btn-row { display: flex; gap: 5px; }
+    .btn { flex: 1; background: rgba(30,41,59,0.7); border: 1px solid var(--border-dim); color: var(--text-primary); padding: 7px 8px; border-radius: 7px; font-size: 0.7rem; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.18s; }
+    .btn:hover { background: rgba(51,65,85,0.9); border-color: var(--accent-cyan); }
+    .btn.accent { background: linear-gradient(135deg, rgba(2,132,199,0.4) 0%, rgba(37,99,235,0.4) 100%); border-color: rgba(59,130,246,0.4); }
+    .btn.accent:hover { filter: brightness(1.2); }
+
+    .joints-container { display: flex; flex-direction: column; gap: 7px; }
+    .joint-row { background: rgba(15,23,42,0.5); border: 1px solid var(--border-dim); border-radius: 8px; padding: 8px 11px; transition: border-color 0.2s; }
+    .joint-row:hover { border-color: rgba(56,189,248,0.3); }
+    .joint-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .joint-name { font-size: 0.7rem; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+    .joint-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .joint-badge { font-size: 0.58rem; color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px; }
+    .joint-val { font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; font-weight: 700; }
+
+    input[type=range] { width: 100%; height: 4px; background: rgba(51,65,85,0.8); border-radius: 2px; outline: none; -webkit-appearance: none; cursor: pointer; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--accent-cyan); border: 2px solid var(--bg-deep); box-shadow: 0 0 6px rgba(56,189,248,0.8); cursor: grab; transition: transform 0.1s; }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.35); }
+
+    /* Actuator Parts List in Sidebar */
+    .part-list { display: flex; flex-direction: column; gap: 6px; }
+    .part-btn { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: rgba(15,23,42,0.6); border: 1px solid var(--border-dim); border-radius: 6px; color: var(--text-secondary); font-size: 0.7rem; cursor: pointer; transition: all 0.18s; }
+    .part-btn:hover, .part-btn.active { background: rgba(56,189,248,0.12); border-color: var(--accent-cyan); color: #fff; }
+    .part-btn-left { display: flex; align-items: center; gap: 7px; font-weight: 500; }
+    .part-color-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .part-tolerance { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--accent-amber); background: rgba(245,158,11,0.1); padding: 1px 5px; border-radius: 3px; }
+
+    .design-note { font-size: 0.67rem; color: var(--text-secondary); line-height: 1.55; padding: 9px 12px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-cyan); border-radius: 0 6px 6px 0; }
+    .design-note strong { color: var(--text-primary); }
+    .mount-sequence { display: grid; grid-template-columns: minmax(52px, 0.8fr) 14px minmax(150px, 1.8fr) 14px minmax(52px, 0.8fr); align-items: stretch; gap: 4px; }
+    .mount-end, .mount-face, .mount-core { display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 7px 5px; border: 1px solid var(--border-dim); border-radius: 5px; font-size: 0.6rem; line-height: 1.4; }
+    .mount-end { background: rgba(34,211,160,0.08); border-color: rgba(34,211,160,0.35); }
+    .mount-end strong { color: var(--accent-green); }
+    .mount-stack { display: flex; flex-direction: column; gap: 3px; }
+    .mount-face.fixed { color: var(--accent-cyan); background: rgba(56,189,248,0.08); border-color: rgba(56,189,248,0.35); }
+    .mount-face.rotating { color: var(--accent-amber); background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.35); }
+    .mount-core { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+    .mount-arrow { display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.85rem; }
+    .mount-caption { margin-top: 8px; font-size: 0.64rem; line-height: 1.5; color: var(--text-secondary); }
+
+    /* View Mode Panels */
+    .view-mode-section { display: none; }
+    .view-mode-section.active { display: flex; flex-direction: column; gap: 12px; }
+
+    /* Floating Zoom HUD Widget */
+    .zoom-widget {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 6px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.65);
+      z-index: 25;
+    }
+    .zoom-btn {
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(30,41,59,0.75);
+      border: 1px solid var(--border-dim);
+      color: var(--text-primary);
+      border-radius: 8px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      outline: none;
+    }
+    .zoom-btn:hover {
+      background: rgba(56,189,248,0.25);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      transform: scale(1.08);
+      box-shadow: 0 0 10px rgba(56,189,248,0.3);
+    }
+    .zoom-btn:active {
+      transform: scale(0.95);
+    }
+    .zoom-hint {
+      font-size: 0.55rem;
+      color: var(--text-secondary);
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      padding-top: 2px;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="viewport-container">
+    <div class="top-toolbar">
+      <a href="https://sortmark.com" target="_blank" rel="home" class="brand" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">⬡ <span style="font-weight:800;letter-spacing:0.5px;">SORTMARK</span> · ROBOTICS</a>
+      <div class="toolbar-sep"></div>
+
+      <!-- Dropdown 1: App Mode Switcher -->
+      <div class="dropdown" id="dd-mode">
+        <button class="dropdown-btn" onclick="toggleDropdown('dd-mode', event)">
+          <span id="dd-mode-label">🦾 7轴冗余机械臂</span>
+          <span class="dropdown-arrow">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <div class="dropdown-header-label">构型与视图模式</div>
+          <div class="dropdown-item active mode-btn" id="btn-mode-arm" onclick="selectAppMode('arm')">🦾 7轴冗余运动姿态 (7-DoF)</div>
+          <div class="dropdown-item mode-btn" id="btn-mode-arm6" onclick="selectAppMode('arm6')">🦾 6轴经典工业构型 (6-DoF)</div>
+          <div class="dropdown-item mode-btn" id="btn-mode-modular" onclick="selectAppMode('modular')">🧩 模块化大梁拓扑对比</div>
+          <div class="dropdown-item mode-btn" id="btn-mode-cutaway" onclick="selectAppMode('cutaway')">🔬 执行器内部剖切透视</div>
+          <div class="dropdown-item mode-btn" id="btn-mode-exploded" onclick="selectAppMode('exploded')">💥 核心零件爆炸分解</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-header-label">SORTMARK 开源矩阵</div>
+          <a href="../harmonic-joint-actuator/" class="dropdown-item" style="color:var(--accent-cyan)">🔘 谐波动力关节 3D 剖切 ↗</a>
+          <a href="../bus-servo-mechanism/" class="dropdown-item" style="color:var(--accent-amber)">📦 总线伺服机构 3D 解构 ↗</a>
+        </div>
+      </div>
+
+      <!-- Dropdown 2: Wrist Morphology Switcher (两种末端形态) -->
+      <div class="dropdown" id="dd-morph">
+        <button class="dropdown-btn" onclick="toggleDropdown('dd-morph', event)">
+          <span id="dd-morph-label">🎬 常规腕部 (整臂一体)</span>
+          <span class="dropdown-arrow">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <div class="dropdown-header-label">末端形态与快拆机制</div>
+          <div class="dropdown-item active morph-btn" id="btn-wrist-conventional" onclick="selectWristMorph('conventional')">🎬 常规腕部 (整臂一体)</div>
+          <div class="dropdown-item morph-btn" id="btn-wrist-quickrelease" onclick="selectWristMorph('quickrelease')">🎥 快拆腕部 (J4脱开 · 独立底座)</div>
+        </div>
+      </div>
+
+      <!-- Dropdown 3: Beam Architecture Switcher (两合一大梁 vs 全铝双板) -->
+      <div class="dropdown" id="dd-beam">
+        <button class="dropdown-btn" onclick="toggleDropdown('dd-beam', event)">
+          <span id="dd-beam-label">🚀 两合一大梁 (零尖角)</span>
+          <span class="dropdown-arrow">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <div class="dropdown-header-label">大梁构型对比</div>
+          <div class="dropdown-item active morph-btn" id="btn-beam-hybrid" onclick="selectBeamArch('hybrid')">🚀 两合一复合大梁 (碳纤维闭口管)</div>
+          <div class="dropdown-item morph-btn" id="btn-beam-plate" onclick="selectBeamArch('plate')">📐 经典全铝双板 (钝化倒角)</div>
+        </div>
+      </div>
+
+      <!-- Dropdown 4: Camera View Switcher -->
+      <div class="dropdown" id="camera-btn-group">
+        <button class="dropdown-btn" onclick="toggleDropdown('camera-btn-group', event)">
+          <span id="dd-cam-label">📷 全局视角</span>
+          <span class="dropdown-arrow">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <div class="dropdown-header-label">视点导航</div>
+          <div class="dropdown-item active view-btn" id="btn-cam-perspective" onclick="selectCamView('perspective')">🌐 全局视角</div>
+          <div class="dropdown-item view-btn" id="btn-cam-flange" onclick="selectCamView('flange')">🎯 ISO 9409 法兰特写</div>
+          <div class="dropdown-item view-btn" id="btn-cam-gimbal" onclick="selectCamView('gimbal')" style="display:none;color:var(--accent-amber)">🎥 独立云台特写</div>
+          <div class="dropdown-item view-btn" id="btn-cam-side" onclick="selectCamView('side')">📐 正侧视图</div>
+          <div class="dropdown-item view-btn" id="btn-cam-front" onclick="selectCamView('front')">📐 正前视图</div>
+          <div class="dropdown-item view-btn" id="btn-cam-top" onclick="selectCamView('top')">📐 俯视图</div>
+        </div>
+      </div>
+
+      <div class="toolbar-sep"></div>
+
+      <!-- Quick Toggles -->
+      <button class="dropdown-btn" id="btn-light-toggle" onclick="toggleLighting(this)" title="切换摄影棚打光模式" style="border-color:rgba(245,158,11,0.4);color:var(--accent-amber);">
+        ☀️ 摄影棚打光
+      </button>
+      <button class="dropdown-btn" id="btn-ee-toggle" onclick="cycleEndEffector(this)" title="切换末端挂载件" style="border-color:rgba(56,189,248,0.4);color:var(--accent-cyan);">
+        🎬 电影机+兔笼
+      </button>
+
+      <div class="toolbar-sep"></div>
+      <a href="https://sortmark.com" target="_blank" rel="home" class="dropdown-btn" style="text-decoration:none;border-color:rgba(56,189,248,0.4);color:var(--accent-cyan);font-weight:700;">
+        🌐 SORTMARK 官网 ↗
+      </a>
+    </div>
+
+    <!-- Floating HUD Morphology Status Badge -->
+    <div id="hud-morphology-pill" style="position:absolute;top:72px;left:270px;padding:6px 14px;background:rgba(8,12,20,0.9);backdrop-filter:blur(16px);border:1px solid rgba(56,189,248,0.5);border-radius:20px;font-size:0.7rem;font-weight:700;color:var(--accent-cyan);z-index:25;box-shadow:0 4px 18px rgba(0,0,0,0.5);display:flex;align-items:center;gap:6px;">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--accent-cyan);display:inline-block;animation:blink 1.5s ease infinite alternate;"></span>
+      <span id="hud-morph-text">🎬 常规腕部形态 (随整臂拍摄 · 不显示相机笼)</span>
+    </div>
+
+    <!-- Floating Specs Overlay -->
+    <div id="spec-overlay">
+      <div class="spec-title">
+        <span id="spec-header-title">模型范围 — 概念</span>
+        <span class="spec-badge" id="spec-header-badge">7-DOF</span>
+      </div>
+      <div id="spec-content">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+
+    <!-- PiP Director Monitor (Active in Arm mode) -->
+    <div id="pip-monitor">
+      <div id="pip-header"><div class="rec-dot"></div><span>TCP 法兰末端视点 · ISO 9409</span></div>
+      <canvas id="pip-canvas"></canvas>
+    </div>
+
+    <!-- Interactive Part Tooltip Callout (Cutaway & Exploded mode) -->
+    <div id="part-callout">
+      <div class="callout-header">
+        <span class="callout-title" id="callout-name">零件名称</span>
+        <span class="callout-tag" id="callout-fit">配合公差</span>
+      </div>
+      <div class="callout-desc" id="callout-text">零件详细功能说明...</div>
+    </div>
+
+    <!-- Floating Zoom & Camera HUD Widget -->
+    <div class="zoom-widget">
+      <button class="zoom-btn" onclick="zoomView(0.8)" title="放大视角 (Zoom In / 滚轮向前 / 键盘 +)">🔍+</button>
+      <button class="zoom-btn" onclick="zoomView(1.25)" title="缩小视角 (Zoom Out / 滚轮向后 / 键盘 -)">🔍−</button>
+      <button class="zoom-btn" onclick="resetView()" title="视角复位 (Reset / 键盘 R)">⟲</button>
+      <div class="zoom-hint">ZOOM</div>
+    </div>
+
+    <canvas id="canvas3d"></canvas>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="panel-header">
+      <div class="panel-title" id="sidebar-panel-title">🔧 7 轴运动控制台</div>
+      <div class="status-pill" id="sidebar-status-pill">概念运动学演示</div>
+    </div>
+
+    <div class="scroll-content">
+
+      <!-- SECTION 1: ARM ROBOT MODE -->
+      <div class="view-mode-section active" id="sec-arm">
+
+        <!-- 1. 运镜轨迹预设 (置顶即点即用) -->
+        <div class="card">
+          <div class="card-label">
+            <span>运镜轨迹预设</span>
+            <span class="badge" style="font-size:0.6rem;color:var(--accent-cyan);background:rgba(56,189,248,0.12);padding:1px 6px;border-radius:4px">一键运镜</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn accent" onclick="startOrbit()">🎬 环绕拍摄</button>
+            <button class="btn" onclick="applyPreset('reveal')">🎥 上升揭幕</button>
+          </div>
+          <div class="btn-row" style="margin-top:5px">
+            <button class="btn" onclick="applyPreset('standby')">🏠 待机位</button>
+            <button class="btn" onclick="applyPreset('stretch')">🦾 全展开</button>
+            <button class="btn" onclick="applyPreset('fold')">📐 贴身折叠</button>
+            <button class="btn" onclick="stopAnim()">⏹ 停止</button>
+          </div>
+        </div>
+
+        <!-- 2. 7 轴关节角度实时控制 (置顶免翻页) -->
+        <div class="card">
+          <div class="card-label">
+            <span>7 轴关节角度控制</span>
+            <span class="badge" style="font-size:0.6rem;color:var(--accent-green);background:rgba(34,211,160,0.12);padding:1px 6px;border-radius:4px">实时同步</span>
+          </div>
+          <div class="joints-container" id="joints-box"></div>
+        </div>
+
+        <!-- 3. 实时运动学遥测 (置顶直观监视) -->
+        <div class="card">
+          <div class="card-label">实时运动学遥测</div>
+          <div class="tele-grid">
+            <div class="tele-item"><span class="tele-key">末端位置 X</span><span class="tele-val" id="hud-x">---</span></div>
+            <div class="tele-item"><span class="tele-key">末端高度 Y</span><span class="tele-val green" id="hud-y">---</span></div>
+            <div class="tele-item"><span class="tele-key">末端位置 Z</span><span class="tele-val" id="hud-z">---</span></div>
+            <div class="tele-item"><span class="tele-key">水平臂展</span><span class="tele-val amber" id="hud-reach">---</span></div>
+          </div>
+        </div>
+
+        <!-- 4. 可折叠深度文档: 大梁力学构型对比与 DFM 深度审计 -->
+        <details class="card collapsible" style="border-color:rgba(56,189,248,0.35);background:rgba(8,20,35,0.7)">
+          <summary class="card-label" style="color:var(--accent-cyan);margin-bottom:0">
+            <span>🏗️ 大梁力学对比与 DFM 深度审计</span>
+            <span class="chevron">▾</span>
+          </summary>
+          <div class="details-content">
+            <div style="font-size:0.7rem;color:var(--text-secondary);line-height:1.5;margin-bottom:8px">
+              • <strong style="color:var(--accent-cyan)">🚀 创新两合一大梁 (端座铝抱箍 + 碳纤闭口圆管)</strong>：闭口截面极惯性矩抗扭提升 <strong style="color:#22d3a0">+380%</strong>，整机自重减少 <strong style="color:#22d3a0">42%</strong>；首阶固有频率提升至 38Hz，彻底消除长焦运镜果冻效应；R3~R5 零尖角钝化安全设计。<br>
+              • <strong style="color:var(--text-secondary)">📐 传统开式双铝板</strong>：易于 3 轴 CNC 铣削，但自由扭转常数极低，急停时末端产生侧向晃动；边缘需人工去毛刺。
+            </div>
+            <div class="btn-row" style="margin-bottom:10px">
+              <button class="btn accent" id="side-btn-beam-hybrid" onclick="selectBeamArch('hybrid')" style="font-size:0.68rem;padding:6px 4px">🚀 两合一复合大梁 (零尖角)</button>
+              <button class="btn" id="side-btn-beam-plate" onclick="selectBeamArch('plate')" style="font-size:0.68rem;padding:6px 4px">📐 经典全铝双板 (钝化倒角)</button>
+            </div>
+
+            <div style="font-size:0.68rem;background:rgba(0,0,0,0.4);border-radius:6px;padding:8px;border:1px solid rgba(255,255,255,0.06);">
+              <div style="font-weight:700;color:var(--accent-amber);margin-bottom:4px;">🔍 三种构型力学与工艺深度审计：</div>
+              <table style="width:100%;border-collapse:collapse;font-size:0.65rem;color:var(--text-secondary);text-align:left;">
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.1);color:#fff;">
+                  <th style="padding:3px 2px;">构型指标</th>
+                  <th style="padding:3px 2px;">纯圆杆/管</th>
+                  <th style="padding:3px 2px;">纯铝片/双板</th>
+                  <th style="padding:3px 2px;color:var(--accent-cyan);">两合一复合管板</th>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                  <td style="padding:3px 2px;font-weight:600;color:#fff;">截面极惯性矩 Ip</td>
+                  <td style="padding:3px 2px;color:#22d3a0;">极高 (闭口对称)</td>
+                  <td style="padding:3px 2px;color:#ef4444;">极低 (开式受扭)</td>
+                  <td style="padding:3px 2px;color:var(--accent-cyan);font-weight:700;">极高 (闭口圆筒)</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                  <td style="padding:3px 2px;font-weight:600;color:#fff;">电机法兰直锁</td>
+                  <td style="padding:3px 2px;color:#ef4444;">不可行 (无攻丝面)</td>
+                  <td style="padding:3px 2px;color:#22d3a0;">简易直锁</td>
+                  <td style="padding:3px 2px;color:var(--accent-cyan);font-weight:700;">CNC 端座 H7 止口</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                  <td style="padding:3px 2px;font-weight:600;color:#fff;">急停晃动抑制</td>
+                  <td style="padding:3px 2px;">优秀</td>
+                  <td style="padding:3px 2px;color:#ef4444;">差 (侧向剪切微颤)</td>
+                  <td style="padding:3px 2px;color:var(--accent-cyan);font-weight:700;">最优 (消灭果冻效应)</td>
+                </tr>
+                <tr>
+                  <td style="padding:3px 2px;font-weight:600;color:#fff;">尖角消除与安全</td>
+                  <td style="padding:3px 2px;">无平面锐边</td>
+                  <td style="padding:3px 2px;color:#f59e0b;">板边存在锐角隐患</td>
+                  <td style="padding:3px 2px;color:var(--accent-cyan);font-weight:700;">全 CNC R3~R5 零尖角</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </details>
+
+        <!-- 5. 可折叠深度文档: 两种末端形态与快拆机制规范 -->
+        <details class="card collapsible" style="border-color:rgba(245,158,11,0.35);background:rgba(20,15,10,0.65)">
+          <summary class="card-label" style="color:var(--accent-amber);margin-bottom:0">
+            <span>🎥 两种末端形态机制规范 (严格无增加 J8)</span>
+            <span class="chevron">▾</span>
+          </summary>
+          <div class="details-content">
+            <div style="font-size:0.7rem;color:var(--text-secondary);line-height:1.5;margin-bottom:8px">
+              • <strong style="color:var(--accent-cyan)">常规腕部</strong>：第三杆 (Link 3) 和 J5–J7 留在机械臂上，随整臂拍摄，常规相机，<span style="color:#ef4444;font-weight:600">不显示相机笼</span>。<br>
+              • <strong style="color:var(--accent-amber)">快拆腕部</strong>：Link 3、J5–J7 和<span style="color:var(--accent-amber);font-weight:600">被动相机笼</span>作为一个模块，从 J4 输出端拆下，转接到独立底座；<strong style="color:#fff">J5–J7 仍可控制</strong>（三轴微动云台）。
+            </div>
+            <div class="btn-row">
+              <button class="btn accent" id="side-btn-conventional" onclick="selectWristMorph('conventional')" style="font-size:0.68rem;padding:6px 4px">🎬 常规腕部 (整臂一体)</button>
+              <button class="btn" id="side-btn-quickrelease" onclick="selectWristMorph('quickrelease')" style="font-size:0.68rem;padding:6px 4px">🎥 快拆腕部 (独立底座+笼)</button>
+            </div>
+          </div>
+        </details>
+
+        <!-- 6. 可折叠深度文档: J2–J5 统一俯仰关节安装与力流拓扑 -->
+        <details class="card collapsible">
+          <summary class="card-label" style="margin-bottom:0">
+            <span>⚙️ J2–J5 统一俯仰关节安装力流拓扑</span>
+            <span class="chevron">▾</span>
+          </summary>
+          <div class="details-content">
+            <div class="mount-caption" style="margin-top:0">统一基准：平行水平俯仰轴、定子端止口/螺栓圈、输出端止口/螺栓圈、双侧板夹持。J2 重载、J3/J4 中型、J5 紧凑，外包络与强度等级按轴位区分。</div>
+            <div class="mount-sequence" role="img" aria-label="上游连杆固定定子法兰，执行器输出法兰连接下游连杆" style="margin-top:8px">
+              <div class="mount-end">01 上游连杆<strong>固定结构</strong></div>
+              <div class="mount-arrow">→</div>
+              <div class="mount-stack">
+                <div class="mount-face fixed">02 定子端安装法兰<br>定位止口 + 螺栓组</div>
+                <div class="mount-core">执行器本体<br>减速器 + 输出支承</div>
+                <div class="mount-face rotating">03 输出端法兰<br>定位止口 + 螺栓组</div>
+              </div>
+              <div class="mount-arrow">→</div>
+              <div class="mount-end">04 下游连杆<strong>随输出转动</strong></div>
+            </div>
+            <div class="mount-caption">上游结构固定定子端；下游构件连接输出法兰。止口负责同心定位，螺栓组负责夹紧。外载弯矩由按载荷选型的输出支承承担，不能默认由电机轴或螺栓孔壁承担。孔数、螺栓等级、预紧和配合尺寸以最终接口图纸为准。</div>
+          </div>
+        </details>
+
+        <!-- 7. 可折叠深度文档: 关节力矩与设计边界 -->
+        <details class="card collapsible">
+          <summary class="card-label" style="margin-bottom:0">
+            <span>📊 关节力矩与设计边界说明</span>
+            <span class="chevron">▾</span>
+          </summary>
+          <div class="details-content">
+            <div class="card-label" style="font-size:0.62rem;margin-bottom:6px">关节力矩需求（未计算：缺少质量/惯量模型）</div>
+            <div id="torque-bars"></div>
+            <div class="design-note" style="margin-top:8px">
+              <strong>模型边界：</strong>页面只演示关节姿态和外形概念。当前没有可靠的零件质量、惯量、材料许用值、轴承载荷或减速器曲线，因此不提供额定负载、力矩选型或安全裕度结论。
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- SECTION 2: CUTAWAY & EXPLODED MODE -->
+      <div class="view-mode-section" id="sec-cutaway">
+        <div class="card">
+          <div class="card-label">
+            <span>爆炸分解间距 (Explosion Spacing)</span>
+            <span class="tele-val" id="explode-dist-val" style="font-size:0.75rem">0 mm</span>
+          </div>
+          <input type="range" id="slider-explode" min="0" max="220" value="0" step="1">
+          <div class="btn-row" style="margin-top:8px">
+            <button class="btn" onclick="setExplosion(0)">紧凑剖切 (0%)</button>
+            <button class="btn" onclick="setExplosion(110)">半展开 (50%)</button>
+            <button class="btn accent" onclick="setExplosion(220)">全部分解 (100%)</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">执行器原理剖切部件 (点击查看待验证项)</div>
+          <div class="part-list" id="parts-menu">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">当前零件工程详单</div>
+          <div id="part-detail-box" style="font-size:0.7rem; line-height:1.6; color:var(--text-secondary);">
+            点击零件查看当前概念假设；材料、公差和内部尺寸均未经过供应商或工程校核。
+          </div>
+        </div>
+
+        <div class="design-note">
+          <strong>安装关系：</strong>定子壳体通过固定端法兰连接上游构件；减速器输出端通过定位止口和螺栓组连接下游构件。输出轴承须按实际载荷单独选型。当前剖切不对应具体产品，减速器、轴承、编码器和线束路径均待定。
+        </div>
+      </div>
+
+      <!-- SECTION 3: MODULAR RECONFIGURABLE MODE -->
+      <div class="view-mode-section" id="sec-modular">
+        <div class="card">
+          <div class="card-label">全铝板件拼装与模块化场景重构</div>
+          <div style="font-size:0.72rem; color:var(--text-secondary); line-height:1.5; margin-bottom:10px;">
+            两种末端形态共用 J5–J7：<strong style="color:var(--accent-cyan)">常规腕部</strong>直接随整臂拍摄；<strong style="color:var(--accent-amber)">快拆腕部</strong>包含 Link 3、J5–J7 和被动相机笼，可独立接底座。不增加 J8。
+          </div>
+          <div class="mount-sequence" role="img" aria-label="第三杆和三轴腕部通过J4双保险快拆连接机械臂或独立底座">
+            <div class="mount-end">Link 2<strong>机械臂侧</strong></div>
+            <div class="mount-arrow">→</div>
+            <div class="mount-stack">
+              <div class="mount-face fixed">J4 输出接口<br>定位止口 + 双保险锁</div>
+              <div class="mount-core">可拆模块<br>Link 3 + J5/J6/J7 + 被动笼</div>
+              <div class="mount-face rotating">同接口底座转接<br>三脚架 / 滑轨</div>
+            </div>
+            <div class="mount-arrow">⇄</div>
+            <div class="mount-end">独立支撑<strong>不增加自由度</strong></div>
+          </div>
+          <div class="mount-caption">快拆包含机械定位/锁止和带防呆的电气快接；拆装前断电。相机笼为被动承载件，需配平相机重心；此模型不代表锁扣强度或断电安全已验证。</div>
+          <div class="btn-row">
+            <button class="btn accent" id="btn-cfg-cinema7" onclick="applyModularConfig('cinema7')">🎬 常规腕部 · 整臂拍摄</button>
+            <button class="btn" id="btn-cfg-desktop6" onclick="applyModularConfig('desktop6')">🔬 6轴桌面高刚度模式</button>
+          </div>
+          <div class="btn-row" style="margin-top:6px">
+            <button class="btn" id="btn-cfg-gimbal3" onclick="applyModularConfig('gimbal3')">🎥 快拆腕部 · 独立使用</button>
+            <button class="btn" id="btn-cfg-turret1" onclick="applyModularConfig('turret1')">🔄 单轴/两轴展示转盘</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">当前模型的关节外包络 (非采购 BOM)</div>
+          <div class="part-list">
+            <div class="part-btn active" style="cursor:default">
+              <div class="part-btn-left">
+                <span class="part-color-dot" style="background:#38bdf8"></span>
+                <span>J1/J2 外包络</span>
+              </div>
+              <span class="part-tolerance">Ø88 × 46 mm</span>
+            </div>
+            <div class="part-btn active" style="cursor:default">
+              <div class="part-btn-left">
+                <span class="part-color-dot" style="background:#fb923c"></span>
+                <span>J3/J4 外包络</span>
+              </div>
+              <span class="part-tolerance">Ø76 × 42 mm</span>
+            </div>
+            <div class="part-btn active" style="cursor:default">
+              <div class="part-btn-left">
+                <span class="part-color-dot" style="background:#facc15"></span>
+                <span>J5/J6/J7 外包络</span>
+              </div>
+              <span class="part-tolerance">Ø56 × 34 mm</span>
+            </div>
+            <div class="part-btn" style="cursor:default">
+              <div class="part-btn-left">
+                <span class="part-color-dot" style="background:#f1f5f9"></span>
+                <span>全铝板式角码法兰端座</span>
+              </div>
+              <span class="part-tolerance">连接尺寸待定义</span>
+            </div>
+            <div class="part-btn" style="cursor:default">
+              <div class="part-btn-left">
+                <span class="part-color-dot" style="background:#94a3b8"></span>
+                <span>6061 激光切板双剪切叉架</span>
+              </div>
+              <span class="part-tolerance">8mm 铝板概念件</span>
+            </div>
+            <div class="part-btn" style="cursor:default">
+              <div class="part-btn-left">
+                <span class="part-color-dot" style="background:#334155"></span>
+                <span>6061-T6 镂空双板桁架大梁</span>
+              </div>
+              <span class="part-tolerance">6mm 双侧板 + 隔柱</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">制造可行性审计状态</div>
+          <div class="tele-grid">
+            <div class="tele-item"><span class="tele-key">几何成熟度</span><span class="tele-val amber">概念模型</span></div>
+            <div class="tele-item"><span class="tele-key">当前轴系</span><span class="tele-val green">J2–J5 平行俯仰</span></div>
+            <div class="tele-item"><span class="tele-key">紧固件/孔系</span><span class="tele-val amber">未完成校核</span></div>
+            <div class="tele-item"><span class="tele-key">强度与扭矩</span><span class="tele-val amber">不可据此选型</span></div>
+          </div>
+        </div>
+
+        <div class="design-note">
+          <strong>加工分工：</strong>激光/水刀适合板件轮廓和非精密孔；承载孔、关节止口、铰链孔与基准面应留加工余量后 CNC 钻/镗/铰，不能把切割精度当作配合公差。发包前还须完成载荷路径、输出支承、连接尺寸链、孔边距、扳手可达性和线束弯曲空间校核。
+        </div>
+        <!-- Contact & Business Consultation Card -->
+        <div class="card" style="border-color:rgba(56,189,248,0.35);background:rgba(8,16,32,0.85);margin-top:8px;">
+          <div class="card-label" style="color:var(--accent-cyan);margin-bottom:6px;">🚀 商业定制与技术支持</div>
+          <div style="font-size:0.68rem;color:var(--text-secondary);line-height:1.55;">
+            SORTMARK 专注于高精度机器人运动学、空间计算与 3D 原生交互系统开发。如需工程定制或商业咨询：<br>
+            <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
+              <a href="mailto:contact@sortmark.com" style="color:#fff;text-decoration:none;font-weight:600;">✉️ contact@sortmark.com</a>
+              <a href="https://sortmark.com" target="_blank" rel="home" style="color:var(--accent-cyan);text-decoration:none;font-weight:700;">sortmark.com ↗</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+  // ── ROBOT ARM SPECIFICATIONS (3-ROD 7-AXIS STANDARDIZED ARCHITECTURE) ──
+  const D = { L1:160, L2:270, L3:230, R1:20, R2:17, R3:14, DJ12:44, HJ12:46, DJ34:38, HJ34:42, DJ567:28, HJ567:34 };
+  const JOINTS = [
+    { id:'J1', name:'J1 底座偏航', sub:'Base Yaw (Pan)',       color:'#38bdf8', min:-175, max:175,  val:0   },
+    { id:'J2', name:'J2 肩部俯仰', sub:'Shoulder Pitch',     color:'#4ade80', min:-45,  max:105,  val:35  },
+    { id:'J3', name:'J3 肘部一俯仰', sub:'Elbow 1 Pitch',     color:'#fbbf24', min:-145, max:145,  val:-65 },
+    { id:'J4', name:'J4 肘部二俯仰', sub:'Elbow 2 Pitch',     color:'#2dd4bf', min:-145, max:145,  val:45  },
+    { id:'J5', name:'J5 航向自转', sub:'Gimbal Pan (Roll)',  color:'#a855f7', min:-180, max:180,  val:0   },
+    { id:'J6', name:'J6 云台横滚', sub:'Gimbal Roll',         color:'#f43f5e', min:-45,  max:45,   val:0   },
+    { id:'J7', name:'J7 云台俯仰', sub:'Gimbal Pitch (Tilt)', color:'#facc15', min:-90,  max:90,   val:0   },
+  ];
+  const angles = {};
+  JOINTS.forEach(j => angles[j.id] = j.val);
+
+  // ── ACTUATOR INTERNAL COMPONENTS METADATA ──
+  const ACTUATOR_PARTS = [
+    {
+      id: 'housing',
+      name: '执行器定子壳体 (Stator Housing)',
+      tag: '上游固定端 · 接口待定',
+      dot: '#475569',
+      distMultiplier: -1.0,
+      material: '材料与表面处理待选型；当前渲染颜色不代表实物工艺。',
+      tolerance: '定位止口、安装基准和紧固件孔系未定义；须按最终执行器图纸设计。',
+      desc: '静止端法兰固定到上游构件。止口负责同心定位，螺栓夹紧；需校核载荷路径与工具可达性。'
+    },
+    {
+      id: 'stator',
+      name: '电机定子与绕组 (Motor Stator)',
+      tag: '静止件 · 规格待定',
+      dot: '#f59e0b',
+      distMultiplier: -0.65,
+      material: '铁芯、绕组与绝缘等级由电机供应商规格确定。',
+      tolerance: '定子配合、轴向限位和散热界面未定义；以选定电机图纸为准。',
+      desc: '定子与壳体保持静止，并通过定子座传递反力矩；需验证固定方式、散热和线束出口。'
+    },
+    {
+      id: 'rotor',
+      name: '电机转子组件 (Motor Rotor)',
+      tag: '电机旋转件 · 规格待定',
+      dot: '#38bdf8',
+      distMultiplier: -0.3,
+      material: '磁钢、转子轭和保持结构按电机型号确定。',
+      tolerance: '气隙、同轴度、保持强度和动平衡等级未定义；以供应商数据为准。',
+      desc: '转子驱动减速器输入端。转子与减速器的连接形式及最高转速需由最终选型确定。'
+    },
+    {
+      id: 'waveGen',
+      name: '减速器输入组件 (Wave Generator Concept)',
+      tag: '高速输入 · 传动方案待定',
+      dot: '#a855f7',
+      distMultiplier: 0.15,
+      material: '若采用谐波传动，输入组件由减速器供应商定义。',
+      tolerance: '几何、配合、润滑和寿命参数未定义；当前为原理示意。',
+      desc: '将电机转矩传入减速级；传动形式和装配顺序须按最终减速器型号确认。'
+    },
+    {
+      id: 'circularSpline',
+      name: '减速器固定反力件 (Fixed Gear Member)',
+      tag: '固定侧 · 传动方案待定',
+      dot: '#64748b',
+      distMultiplier: 0.0,
+      material: '齿轮材料、热处理与润滑由所选减速器确定。',
+      tolerance: '齿形、齿数、精度等级及壳体连接尺寸未定义。',
+      desc: '减速级的固定反力端连接到定子壳体；不能把示意齿形当作可加工齿轮设计。'
+    },
+    {
+      id: 'flexspline',
+      name: '减速器输出组件 (Reducer Output Member)',
+      tag: '输出侧 · 规格待定',
+      dot: '#22d3a0',
+      distMultiplier: 0.45,
+      material: '按减速器型号及供应商设计确定。',
+      tolerance: '输出接口、容许倾覆力矩和回差指标未确认。',
+      desc: '减速器输出端连接输出法兰；额定扭矩、回差和寿命需以供应商额定曲线为准。'
+    },
+    {
+      id: 'crossRoller',
+      name: '输出支承轴承 (Output Support Bearing)',
+      tag: '承载支承 · 型号待定',
+      dot: '#e2e8f0',
+      distMultiplier: 0.8,
+      material: '轴承类型与材料待按载荷、刚度和寿命要求选择。',
+      tolerance: '额定载荷、预紧、安装配合和寿命计算尚未完成。',
+      desc: '应明确由哪一组轴承承受径向力、轴向力与倾覆力矩；不能仅凭外形假设单轴承足够。'
+    },
+    {
+      id: 'outputFlange',
+      name: '输出端连接法兰 (Output Flange)',
+      tag: '运动输出端 · 接口待定',
+      dot: '#38bdf8',
+      distMultiplier: 1.15,
+      material: '材料、厚度和表面处理待按载荷及腐蚀环境确定。',
+      tolerance: '止口、螺栓分布圆、螺纹规格和端面跳动公差未定义。',
+      desc: '通过定位止口与下游连杆同心，通过螺栓组夹紧传递转矩；结构尺寸需与输出端图纸匹配。'
+    },
+    {
+      id: 'dualEncoder',
+      name: '角度传感器 (Encoder)',
+      tag: '反馈选项 · 方案待定',
+      dot: '#ec4899',
+      distMultiplier: 1.45,
+      material: '传感器类型、分辨率和接口由控制系统及执行器选型确定。',
+      tolerance: '安装基准、气隙、偏心允许值和防护等级未定义。',
+      desc: '传感器反馈用于电机换相或输出位置闭环；编码器本身不能消除减速器弹性和回差。'
+    },
+    {
+      id: 'hollowShaft',
+      name: '中心过线与线束 (Cable Passage)',
+      tag: '走线方案 · 空间待核',
+      dot: '#facc15',
+      distMultiplier: 1.7,
+      material: '导管、线缆、连接器和屏蔽结构待系统电气方案确定。',
+      tolerance: '通孔尺寸、最小弯曲半径、旋转寿命和防磨要求未验证。',
+      desc: '线束可采用中空或外置路径；须逐轴检查全行程扭转、弯曲、夹线和连接器维护空间。'
+    }
+  ];
+
+  // ── POPULATE SIDEBAR CONTROLS ──
+  // 1. Joints sliders for arm
+  const jointsBox = document.getElementById('joints-box');
+  JOINTS.forEach(j => {
+    const row = document.createElement('div');
+    row.className = 'joint-row';
+    row.id = 'joint-row-' + j.id;
+    row.innerHTML = `<div class="joint-header"><span class="joint-name"><span class="joint-dot" style="background:${j.color}"></span>${j.name}<span class="joint-badge">${j.sub}</span></span><span class="joint-val" id="val-${j.id}" style="color:${j.color}">${j.val}°</span></div><input type="range" id="slider-${j.id}" min="${j.min}" max="${j.max}" value="${j.val}">`;
+    jointsBox.appendChild(row);
+    row.querySelector('input').addEventListener('input', e => { stopAnim(); angles[j.id] = parseFloat(e.target.value); document.getElementById('val-'+j.id).textContent = angles[j.id]+'°'; applyPose(); });
+  });
+
+  // 2. Torque bars for arm
+  const torqueBarEl = document.getElementById('torque-bars');
+  ['J1','J2','J3','J4','J5'].forEach(id => {
+    const d = document.createElement('div'); d.className='torque-item';
+    d.innerHTML=`<span class="torque-label">${id}</span><div class="torque-bar-bg"><div class="torque-bar-fill" id="tbar-${id}" style="width:0%;background:#38bdf8"></div></div><span class="torque-nm" id="tnm-${id}">0.0 Nm</span>`;
+    torqueBarEl.appendChild(d);
+  });
+
+  // 3. Actuator parts buttons in Cutaway mode
+  const partsMenu = document.getElementById('parts-menu');
+  ACTUATOR_PARTS.forEach((part, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'part-btn' + (idx===0 ? ' active' : '');
+    btn.id = 'pbtn-' + part.id;
+    btn.innerHTML = `
+      <div class="part-btn-left">
+        <span class="part-color-dot" style="background:${part.dot}"></span>
+        <span>${part.name.split(' (')[0]}</span>
+      </div>
+      <span class="part-tolerance">${part.tag.split(' · ')[1] || '精密件'}</span>
+    `;
+    btn.addEventListener('click', () => selectPart(part));
+    partsMenu.appendChild(btn);
+  });
+
+  function selectPart(part) {
+    document.querySelectorAll('.part-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('pbtn-' + part.id);
+    if(btn) btn.classList.add('active');
+
+    // Update detail card
+    document.getElementById('part-detail-box').innerHTML = `
+      <div style="font-size:0.78rem; font-weight:700; color:${part.dot}; margin-bottom:4px;">${part.name}</div>
+      <div style="margin-bottom:6px;"><span style="color:var(--text-primary); font-weight:600;">【材料与表面】：</span>${part.material}</div>
+      <div style="margin-bottom:6px;"><span style="color:var(--accent-amber); font-weight:600;">【公差配合】：</span>${part.tolerance}</div>
+      <div><span style="color:var(--accent-cyan); font-weight:600;">【功能原理解析】：</span>${part.desc}</div>
+    `;
+
+    // Show callout tooltip
+    const callout = document.getElementById('part-callout');
+    document.getElementById('callout-name').textContent = part.name;
+    document.getElementById('callout-fit').textContent = part.tag;
+    document.getElementById('callout-text').textContent = part.desc;
+    callout.classList.add('show');
+    clearTimeout(window._calloutTimer);
+    window._calloutTimer = setTimeout(() => callout.classList.remove('show'), 6000);
+  }
+
+  // ── THREE.JS SETUP ──
+  const canvas3d = document.getElementById('canvas3d');
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x111726, 0.00035);
+  scene.background = new THREE.Color(0x111726);
+
+  // Framed to capture entire robot from base to cinema camera / calibration fixture
+  const mainCam = new THREE.PerspectiveCamera(36, canvas3d.clientWidth/canvas3d.clientHeight, 5, 9000);
+  mainCam.position.set(1450, 780, 1800);
+  mainCam.lookAt(0, 380, 0);
+
+  // PiP Director Camera
+  const pipCanvas = document.getElementById('pip-canvas');
+  const pipRenderer = new THREE.WebGLRenderer({ canvas: pipCanvas, antialias: true });
+  pipRenderer.setSize(260, 160);
+  pipRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  pipRenderer.toneMappingExposure = 1.15;
+  const cineCam = new THREE.PerspectiveCamera(40, 260/160, 10, 4000);
+
+  // High-Contrast Studio Materials Library
+  // High-Contrast Studio Materials Library (Physical Aerospace 6061-T6 Aluminum & Optical Rig)
+  const M = {
+    anoBlack:    new THREE.MeshStandardMaterial({ color:0x1e2634, roughness:0.30, metalness:0.70 }),
+    anoSilver:   new THREE.MeshStandardMaterial({ color:0xf1f5f9, roughness:0.25, metalness:0.42 }),
+    mountFixed:  new THREE.MeshStandardMaterial({ color:0x0891b2, roughness:0.3, metalness:0.55 }),
+    mountRotating:new THREE.MeshStandardMaterial({ color:0xb45309, roughness:0.3, metalness:0.55 }),
+    aluminum:    new THREE.MeshStandardMaterial({ color:0xe2e8f0, roughness:0.28, metalness:0.38 }),
+    aluminumDark:new THREE.MeshStandardMaterial({ color:0x94a3b8, roughness:0.30, metalness:0.50 }),
+    blackBolt:   new THREE.MeshStandardMaterial({ color:0x11161f, roughness:0.40, metalness:0.60 }),
+    breadboard:  new THREE.MeshStandardMaterial({ color:0x0b0e14, roughness:0.85, metalness:0.08 }),
+    chamferSilver: new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.12, metalness:0.75 }),
+    carbon:      new THREE.MeshStandardMaterial({ color:0x222b3a, roughness:0.22, metalness:0.45 }),
+    joint:       new THREE.MeshStandardMaterial({ color:0x293344, roughness:0.25, metalness:0.65 }),
+    steel:       new THREE.MeshStandardMaterial({ color:0xf8fafc, roughness:0.15, metalness:0.65 }),
+    copper:      new THREE.MeshStandardMaterial({ color:0xd97706, roughness:0.32, metalness:0.82 }),
+    gold:        new THREE.MeshStandardMaterial({ color:0xf59e0b, roughness:0.25, metalness:0.92 }),
+    goldCoil:    new THREE.MeshStandardMaterial({ color:0xb45309, roughness:0.35, metalness:0.75 }),
+    magnet:      new THREE.MeshStandardMaterial({ color:0x0284c7, roughness:0.20, metalness:0.85 }),
+    flexAlloy:   new THREE.MeshStandardMaterial({ color:0x22d3a0, roughness:0.15, metalness:0.92 }),
+    waveCam:     new THREE.MeshStandardMaterial({ color:0x9333ea, roughness:0.12, metalness:0.95 }),
+    rollerSteel: new THREE.MeshStandardMaterial({ color:0xf8fafc, roughness:0.04, metalness:1.0 }),
+    pcbGreen:    new THREE.MeshStandardMaterial({ color:0x047857, roughness:0.5, metalness:0.2 }),
+    cableBlue:   new THREE.MeshStandardMaterial({ color:0x0284c7, roughness:0.6, metalness:0.1 }),
+    cableRed:    new THREE.MeshStandardMaterial({ color:0xef4444, roughness:0.6, metalness:0.1 }),
+    cableYellow: new THREE.MeshStandardMaterial({ color:0xeab308, roughness:0.6, metalness:0.1 }),
+    cableBlack:  new THREE.MeshStandardMaterial({ color:0x1e293b, roughness:0.7, metalness:0.1 }),
+    ledCyan:     new THREE.MeshBasicMaterial({ color:0x38bdf8 }),
+    ledGreen:    new THREE.MeshBasicMaterial({ color:0x22d3a0 }),
+    ledAmber:    new THREE.MeshBasicMaterial({ color:0xf59e0b }),
+    ledPurple:   new THREE.MeshBasicMaterial({ color:0xa855f7 }),
+    ledRed:      new THREE.MeshBasicMaterial({ color:0xf43f5e }),
+    ledTeal:     new THREE.MeshBasicMaterial({ color:0x2dd4bf }),
+    ledYellow:   new THREE.MeshBasicMaterial({ color:0xfacc15 }),
+    camBody:     new THREE.MeshStandardMaterial({ color:0x242a36, roughness:0.35, metalness:0.65 }),
+    lens:        new THREE.MeshStandardMaterial({ color:0x0055bb, roughness:0.04, metalness:0.85, transparent:true, opacity:0.92 }),
+    chrome:      new THREE.MeshStandardMaterial({ color:0xf8fafc, roughness:0.05, metalness:1.0 }),
+    red:         new THREE.MeshStandardMaterial({ color:0xef4444, roughness:0.3, metalness:0.5 }),
+    rubber:      new THREE.MeshStandardMaterial({ color:0x181e28, roughness:0.75, metalness:0.1 }),
+  };
+
+  function makeRoundedBox(width, height, depth, radius, material) {
+    const bevel = Math.min(0.8, depth * 0.2, width * 0.1, height * 0.1);
+    const innerWidth = width - bevel * 2;
+    const innerHeight = height - bevel * 2;
+    const corner = Math.max(0.2, Math.min(radius - bevel, innerWidth / 2, innerHeight / 2));
+    const halfWidth = innerWidth / 2;
+    const halfHeight = innerHeight / 2;
+    const shape = new THREE.Shape();
+    shape.moveTo(-halfWidth + corner, -halfHeight);
+    shape.lineTo(halfWidth - corner, -halfHeight);
+    shape.quadraticCurveTo(halfWidth, -halfHeight, halfWidth, -halfHeight + corner);
+    shape.lineTo(halfWidth, halfHeight - corner);
+    shape.quadraticCurveTo(halfWidth, halfHeight, halfWidth - corner, halfHeight);
+    shape.lineTo(-halfWidth + corner, halfHeight);
+    shape.quadraticCurveTo(-halfWidth, halfHeight, -halfWidth, halfHeight - corner);
+    shape.lineTo(-halfWidth, -halfHeight + corner);
+    shape.quadraticCurveTo(-halfWidth, -halfHeight, -halfWidth + corner, -halfHeight);
+
+    const coreDepth = Math.max(0.2, depth - bevel * 2);
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth: coreDepth,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 3,
+      curveSegments: 6,
+    });
+    geometry.translate(0, 0, -coreDepth / 2);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  function makeButtonHead(radius, height, material) {
+    const group = new THREE.Group();
+    const shank = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.86, radius, height * 0.65, 24), material);
+    shank.position.y = -height * 0.17;
+    group.add(shank);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.86, 24, 12), material);
+    dome.scale.y = 0.45;
+    dome.position.y = height * 0.22;
+    group.add(dome);
+    return group;
+  }
+
+  function makeRoundedCylinder(radius, height, material, edgeRadius = 1, segments = 48) {
+    const edge = Math.min(edgeRadius, radius * 0.25, height * 0.25);
+    const halfHeight = height / 2;
+    const profile = [new THREE.Vector2(0, -halfHeight), new THREE.Vector2(radius - edge, -halfHeight)];
+    for (let step = 0; step <= 6; step++) {
+      const angle = -Math.PI / 2 + step * Math.PI / 12;
+      profile.push(new THREE.Vector2(radius - edge + edge * Math.cos(angle), -halfHeight + edge + edge * Math.sin(angle)));
+    }
+    profile.push(new THREE.Vector2(radius, halfHeight - edge));
+    for (let step = 0; step <= 6; step++) {
+      const angle = step * Math.PI / 12;
+      profile.push(new THREE.Vector2(radius - edge + edge * Math.cos(angle), halfHeight - edge + edge * Math.sin(angle)));
+    }
+    profile.push(new THREE.Vector2(0, halfHeight));
+    const geometry = new THREE.LatheGeometry(profile, segments);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  // 流线型 4 瓣花瓣式摄影镜头遮光罩 (Tulip / Petal Lens Hood)
+  function makePetalLensHood(rBase, rTip, baseLen, petalAmp, material) {
+    const segments = 48;
+    const geom = new THREE.BufferGeometry();
+    const vertices = [];
+    const indices = [];
+    const uvs = [];
+
+    for (let i = 0; i <= segments; i++) {
+      const u = i / segments;
+      const theta = u * Math.PI * 2;
+      const sinT = Math.sin(theta);
+      const cosT = Math.cos(theta);
+      const petalL = baseLen + petalAmp * (2 * sinT * sinT - 0.2);
+
+      vertices.push(0, rBase * sinT, rBase * cosT);
+      uvs.push(u, 0);
+
+      const flareR = rTip + (petalL / (baseLen + petalAmp)) * 2.4;
+      vertices.push(petalL, flareR * sinT, flareR * cosT);
+      uvs.push(u, 1);
+    }
+
+    for (let i = 0; i < segments; i++) {
+      const v0 = i * 2;
+      const v1 = i * 2 + 1;
+      const v2 = (i + 1) * 2;
+      const v3 = (i + 1) * 2 + 1;
+      indices.push(v0, v1, v2);
+      indices.push(v2, v1, v3);
+      indices.push(v2, v1, v0);
+      indices.push(v3, v1, v2);
+    }
+
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geom.setIndex(indices);
+    geom.computeVertexNormals();
+
+    const mesh = new THREE.Mesh(geom, material);
+    mesh.castShadow = true;
+    return mesh;
+  }
+
+  // Studio Multi-Point High-Key Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.15);
+  scene.add(ambientLight);
+
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.95);
+  scene.add(hemiLight);
+
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+  keyLight.position.set(900, 1800, 1300);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.bias = -0.0002;
+  keyLight.shadow.camera.left = -1100; keyLight.shadow.camera.right = 1100;
+  keyLight.shadow.camera.top = 1100; keyLight.shadow.camera.bottom = -400;
+  keyLight.shadow.camera.near = 100; keyLight.shadow.camera.far = 4500;
+  scene.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(0xe0f2fe, 1.4);
+  fillLight.position.set(-900, 1300, 1100);
+  scene.add(fillLight);
+
+  const topLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  topLight.position.set(0, 2200, 0);
+  scene.add(topLight);
+
+  const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.5);
+  rimLight.position.set(0, 900, -1300);
+  scene.add(rimLight);
+
+  const bounceLight = new THREE.DirectionalLight(0x64748b, 0.6);
+  bounceLight.position.set(0, -300, 600);
+  scene.add(bounceLight);
+
+  let isStudioLighting = true;
+  function toggleLighting(btn) {
+    isStudioLighting = !isStudioLighting;
+    if (isStudioLighting) {
+      ambientLight.intensity = 0.95;
+      keyLight.intensity = 1.8;
+      fillLight.intensity = 1.4;
+      scene.background = new THREE.Color(0x111726);
+      btn.innerHTML = '☀️ 摄影棚高亮';
+      btn.style.color = 'var(--accent-amber)';
+      btn.style.borderColor = 'var(--accent-amber)';
+    } else {
+      ambientLight.intensity = 0.40;
+      keyLight.intensity = 1.3;
+      fillLight.intensity = 0.6;
+      scene.background = new THREE.Color(0x06080e);
+      btn.innerHTML = '🌙 电影感夜景';
+      btn.style.color = 'var(--accent-cyan)';
+      btn.style.borderColor = 'var(--accent-cyan)';
+    }
+  }
+  window.toggleLighting = toggleLighting;
+
+  // Floor + Studio Grid
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.MeshStandardMaterial({ color:0x0b1019, roughness:0.35, metalness:0.4 }));
+  floor.rotation.x = -Math.PI/2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  const grid = new THREE.GridHelper(3000, 60, 0x243248, 0x121a28);
+  grid.position.y = 0.5;
+  scene.add(grid);
+  grid.position.y = 0.5;
+  scene.add(grid);
+
+  // ════════════════════════════════════════════════════════════════
+  // 1. ROBOT ARM 3D ASSEMBLY (Full Assembly Group)
+  // ════════════════════════════════════════════════════════════════
+  const armRoot = new THREE.Group();
+  scene.add(armRoot);
+  const standaloneHeadRoot = new THREE.Group();
+  standaloneHeadRoot.visible = false;
+  scene.add(standaloneHeadRoot);
+
+  // ────────────────────────────────────────────────────────────
+  // 工业级高精度 6061-T6 原色银铝谐波/伺服执行器模组 (Cylindrical Silver Harmonic Actuator)
+  // 参考真实工业实物 (Image 1 & Image 3)：
+  // 1. 航空 6061-T6 原色拉丝铝合金外壳，CNC 倒角精车，端部高光高亮倒角；
+  // 2. 中段精密谐波定子嵌环与极细微光状态指示环；
+  // 3. 端面精密止口定位凸台与圆周 6 颗 DIN 912 黑色高强内六角螺钉 (PCD 螺栓圈)；
+  // ────────────────────────────────────────────────────────────
+  function makeActuator(R, H, ledMat) {
+    const g = new THREE.Group();
+
+    // 1. 主体：6061-T6 阳极氧化亮银铝合金外壳 (Brushed Silver Aluminum Housing)
+    const barrel = makeRoundedCylinder(R, H - 4, M.anoSilver, 1.2);
+    g.add(barrel);
+
+    // 2. 中段精密谐波定子/柔轮黑色阶梯嵌环 (Precision Inner Stator Band)
+    const statorBand = makeRoundedCylinder(R + 0.3, H * 0.36, M.blackBolt, 0.7);
+    g.add(statorBand);
+
+    // 3. 上下端 CNC 精车法兰凸缘环 (Silver Flange Rings)
+    const fT = makeRoundedCylinder(R + 2.5, 3.5, M.anoSilver, 0.8);
+    fT.position.y = H / 2 - 1.75;
+    g.add(fT);
+    const fB = makeRoundedCylinder(R + 2.5, 3.5, M.anoSilver, 0.8);
+    fB.position.y = -(H / 2 - 1.75);
+    g.add(fB);
+
+    // 4. 精铣高光倒角亮圈 (Chamfer Highlights)
+    for (let s of [-1, 1]) {
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(R + 2.2, 0.6, 8, 48), M.chamferSilver);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = s * (H / 2 - 1.75);
+      g.add(rim);
+    }
+
+    // 5. 极细状态微光环 (Subtle State Indicator Ring)
+    const led = new THREE.Mesh(new THREE.TorusGeometry(R + 0.8, 0.8, 10, 52), ledMat);
+    led.rotation.x = Math.PI / 2;
+    g.add(led);
+
+    // Illustrative end-face fasteners; final pattern follows the selected actuator.
+    const pcdR = R * 0.76;
+    for (const end of [-1, 1]) {
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const bolt = makeButtonHead(2.1, 2.2, M.blackBolt);
+        bolt.rotation.z = end < 0 ? Math.PI : 0;
+        bolt.position.set(Math.cos(a) * pcdR, end * (H / 2 + 0.7), Math.sin(a) * pcdR);
+        g.add(bolt);
+      }
+    }
+
+    // 7. 工业航插信号接口 (Industrial Circular Connector)
+    const port = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 7, 12), M.anoSilver);
+    port.rotation.z = Math.PI / 2;
+    port.position.set(R + 2, 0, 0);
+    g.add(port);
+
+    return g;
+  }
+
+  function makeMountFlange(R, axis, axialOffset, side, rotating = false) {
+    const g = new THREE.Group();
+    const faceMaterial = rotating ? M.mountRotating : M.mountFixed;
+    const rotation = axis === 'x'
+      ? new THREE.Euler(0, 0, -Math.PI / 2)
+      : axis === 'z'
+        ? new THREE.Euler(Math.PI / 2, 0, 0)
+        : new THREE.Euler();
+    const flange = makeRoundedCylinder(R + 4, 4, faceMaterial, 0.8, 64);
+    flange.rotation.copy(rotation);
+    flange.position[axis] = axialOffset;
+    flange.castShadow = true;
+    g.add(flange);
+
+    const pilot = makeRoundedCylinder(R * 0.34, 2, M.anoSilver, 0.4, 48);
+    pilot.rotation.copy(rotation);
+    pilot.position[axis] = axialOffset + side * 3;
+    g.add(pilot);
+
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3;
+      const bolt = makeButtonHead(2.5, 2.2, M.blackBolt);
+      bolt.rotation.copy(rotation);
+      if (axis === 'x') bolt.rotateY(side < 0 ? Math.PI : 0);
+      else bolt.rotateX(side < 0 ? Math.PI : 0);
+      bolt.position[axis] = axialOffset + side * 1.7;
+      if (axis === 'x') {
+        bolt.position.y = Math.cos(angle) * R * 0.72;
+        bolt.position.z = Math.sin(angle) * R * 0.72;
+      } else if (axis === 'y') {
+        bolt.position.x = Math.cos(angle) * R * 0.72;
+        bolt.position.z = Math.sin(angle) * R * 0.72;
+      } else {
+        bolt.position.x = Math.cos(angle) * R * 0.72;
+        bolt.position.y = Math.sin(angle) * R * 0.72;
+      }
+      g.add(bolt);
+    }
+    return g;
+  }
+
+  // Conceptual link with two side plates and explicit end patterns for joint pilots.
+  function makeTwinPlateLink(startR, startH, endR, endH, L, width = 48) {
+    const g = new THREE.Group();
+    const plateT = 6;
+    const motorDepth = Math.max(startH, endH);
+    const sideOffset = motorDepth / 2 + 2;
+    const maxJointR = Math.max(startR, endR);
+    const endWidth = 2 * (maxJointR + 8);
+    const taperY = Math.min(L * 0.22, maxJointR + 8);
+    const points = [
+      { x: -endWidth / 2, y: 0 },
+      { x: -width / 2, y: taperY },
+      { x: -width / 2, y: L - taperY },
+      { x: -endWidth / 2, y: L },
+      { x: endWidth / 2, y: L },
+      { x: width / 2, y: L - taperY },
+      { x: width / 2, y: taperY },
+      { x: endWidth / 2, y: 0 },
+    ];
+    const corners = points.map((point, index) => {
+      const previous = points[(index + points.length - 1) % points.length];
+      const next = points[(index + 1) % points.length];
+      const previousLength = Math.hypot(previous.x - point.x, previous.y - point.y);
+      const nextLength = Math.hypot(next.x - point.x, next.y - point.y);
+      const trim = Math.min(3.5, previousLength * 0.4, nextLength * 0.4);
+      return {
+        point,
+        start: { x: point.x + (previous.x - point.x) * trim / previousLength, y: point.y + (previous.y - point.y) * trim / previousLength },
+        end: { x: point.x + (next.x - point.x) * trim / nextLength, y: point.y + (next.y - point.y) * trim / nextLength },
+      };
+    });
+    const plateShape = new THREE.Shape();
+    plateShape.moveTo(corners[0].end.x, corners[0].end.y);
+    for (let index = 1; index < corners.length; index++) {
+      plateShape.lineTo(corners[index].start.x, corners[index].start.y);
+      plateShape.quadraticCurveTo(corners[index].point.x, corners[index].point.y, corners[index].end.x, corners[index].end.y);
+    }
+    plateShape.lineTo(corners[0].start.x, corners[0].start.y);
+    plateShape.quadraticCurveTo(corners[0].point.x, corners[0].point.y, corners[0].end.x, corners[0].end.y);
+
+    for (const y of [L * 0.36, L * 0.64]) {
+      const relief = new THREE.Path();
+      relief.absellipse(0, y, Math.min(7, width * 0.15), Math.min(18, L * 0.08), 0, Math.PI * 2, true);
+      plateShape.holes.push(relief);
+    }
+
+    for (const [y, jointR] of [[0, startR], [L, endR]]) {
+      const pilotClearance = new THREE.Path();
+      pilotClearance.absellipse(0, y, jointR * 0.34 + 0.5, jointR * 0.34 + 0.5, 0, Math.PI * 2, true);
+      plateShape.holes.push(pilotClearance);
+      for (let i = 0; i < 6; i++) {
+        const angle = i * Math.PI / 3;
+        const boltHole = new THREE.Path();
+        boltHole.absellipse(Math.cos(angle) * jointR * 0.72, y + Math.sin(angle) * jointR * 0.72, 2.3, 2.3, 0, Math.PI * 2, true);
+        plateShape.holes.push(boltHole);
+      }
+    }
+
+    const edgeBevel = 0.6;
+    const plateCore = plateT - edgeBevel * 2;
+    const plateGeometry = new THREE.ExtrudeGeometry(plateShape, {
+      depth: plateCore,
+      bevelEnabled: true,
+      bevelThickness: edgeBevel,
+      bevelSize: edgeBevel,
+      bevelSegments: 3,
+      curveSegments: 16,
+    });
+    plateGeometry.translate(0, 0, -plateCore / 2);
+    const platePositions = [-sideOffset - plateT, sideOffset];
+    for (const z of platePositions) {
+      const plate = new THREE.Mesh(plateGeometry, M.aluminum);
+      plate.position.z = z;
+      plate.castShadow = true;
+      plate.receiveShadow = true;
+      g.add(plate);
+    }
+
+    const spacerLength = Math.max(2, motorDepth - plateT * 2);
+    for (const y of [taperY + 8, L / 2, L - taperY - 8]) {
+      const spacer = makeRoundedCylinder(4, spacerLength, M.aluminumDark, 0.8, 24);
+      spacer.rotation.x = Math.PI / 2;
+      spacer.position.set(0, y, 0);
+      g.add(spacer);
+
+      for (const z of [-sideOffset - plateT / 2, sideOffset + plateT / 2]) {
+        const boltHead = makeButtonHead(3.2, 2, M.blackBolt);
+        boltHead.rotation.x = Math.PI / 2;
+        boltHead.position.set(0, y, z);
+        g.add(boltHead);
+      }
+    }
+
+    for (const [y, jointR, jointH] of [[0, startR, startH], [L, endR, endH]]) {
+      const adapterGap = (motorDepth - jointH) / 2;
+      for (let i = 0; i < 6; i++) {
+        const angle = i * Math.PI / 3;
+        const x = Math.cos(angle) * jointR * 0.72;
+        const boltY = y + Math.sin(angle) * jointR * 0.72;
+        for (let sideIndex = 0; sideIndex < 2; sideIndex++) {
+          const side = sideIndex === 0 ? -1 : 1;
+          const plateZ = platePositions[sideIndex];
+          const head = makeButtonHead(2.6, 2, M.blackBolt);
+          head.rotation.x = Math.PI / 2;
+          head.position.set(x, boltY, side < 0 ? plateZ - 1 : plateZ + plateT + 1);
+          g.add(head);
+
+          if (adapterGap > 0) {
+            const standOff = makeRoundedCylinder(3.2, adapterGap, M.chamferSilver, 0.6, 24);
+            standOff.rotation.x = Math.PI / 2;
+            standOff.position.set(x, boltY, side * (jointH / 2 + 4 + adapterGap / 2));
+            g.add(standOff);
+          }
+        }
+      }
+    }
+
+    return g;
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 越疆 (Dobot) 风格流线型 90° 一体化正交连接弯头夹具 (Streamlined 90° Elbow Bracket)
+  // 专用于关节正交转接固定 (J1-J2 肩部直角座, J5-J6 腕部俯仰转偏航, J6-J7 偏航转光轴自转)：
+  // 1. 水平端与垂直端均采用与电机外径匹配的同心圆台 (Concentric Cylindrical Pilots)；
+  // 2. 转折处为连续圆滑 R 倒角与 45° 流线切削外形 (Filleted Knuckle Elbow)；
+  // 3. 内置中空暗走线过孔与内沉式螺栓固定，彻底消灭初级生硬拼凑感。
+  // ────────────────────────────────────────────────────────────
+  function makeCNCLBracket(armW, horizLen, vertLen, plateT = 14, bossR = 24) {
+    const g = new THREE.Group();
+    const chamfer = 1.8;
+
+    // 1. 水平支臂 (Horizontal Arm)
+    const hMesh = makeRoundedBox(armW, plateT, horizLen, Math.min(4, plateT / 2), M.anoSilver);
+    hMesh.position.set(0, plateT / 2, horizLen / 2);
+    hMesh.castShadow = true;
+    g.add(hMesh);
+
+    // 2. 垂直立臂 (Vertical Upright Arm)
+    const vMesh = makeRoundedBox(armW, vertLen, plateT, Math.min(4, plateT / 2), M.anoSilver);
+    vMesh.position.set(0, vertLen / 2, plateT / 2);
+    vMesh.castShadow = true;
+    g.add(vMesh);
+
+    // 3. 转角平滑圆角柱 (Corner Fillet Cylinder)
+    const cornerFillet = makeRoundedCylinder(plateT, armW, M.anoSilver, 1.2, 32);
+    cornerFillet.rotation.z = Math.PI / 2;
+    cornerFillet.position.set(0, plateT / 2, plateT / 2);
+    g.add(cornerFillet);
+
+    // 4. 45° CNC 高光倒角边缘修饰
+    for (let sx of [-1, 1]) {
+      const hTrim = makeRoundedBox(chamfer, chamfer, horizLen, 0.7, M.chamferSilver);
+      hTrim.position.set(sx * (armW / 2 - chamfer / 2), plateT - chamfer / 2, horizLen / 2);
+      g.add(hTrim);
+
+      const vTrim = makeRoundedBox(chamfer, vertLen, chamfer, 0.7, M.chamferSilver);
+      vTrim.position.set(sx * (armW / 2 - chamfer / 2), vertLen / 2, plateT - chamfer / 2);
+      g.add(vTrim);
+    }
+
+    // 5. 内转角平滑加固斜切块 (Smooth Inside Corner Reinforcement Web — 杜绝外突尖角)
+    const gussetMesh = makeRoundedBox(armW - 4, 8, 8, 3, M.anoSilver);
+    gussetMesh.position.set(0, plateT + 3, plateT + 3);
+    gussetMesh.rotation.x = Math.PI / 4;
+    gussetMesh.castShadow = true;
+    g.add(gussetMesh);
+
+    // 6. 水平安装端：同心圆柱止口与 4 颗黑色沉头螺栓
+    const hBoss = makeRoundedCylinder(bossR, plateT + 1, M.anoSilver, 1.2, 48);
+    hBoss.position.set(0, plateT / 2, horizLen - bossR - 2);
+    g.add(hBoss);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const b = makeButtonHead(2.5, 2, M.blackBolt);
+      b.position.set(Math.cos(a) * (bossR * 0.65), plateT + 0.5, horizLen - bossR - 2 + Math.sin(a) * (bossR * 0.65));
+      g.add(b);
+    }
+
+    // 7. 垂直安装端：同心圆柱止口与 4 颗黑色沉头螺栓
+    const vBoss = makeRoundedCylinder(bossR, plateT + 1, M.anoSilver, 1.2, 48);
+    vBoss.rotation.x = Math.PI / 2;
+    vBoss.position.set(0, vertLen - bossR - 2, plateT / 2);
+    g.add(vBoss);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const b = makeButtonHead(2.5, 2, M.blackBolt);
+      b.rotation.x = Math.PI / 2;
+      b.position.set(Math.cos(a) * (bossR * 0.65), vertLen - bossR - 2 + Math.sin(a) * (bossR * 0.65), plateT + 0.5);
+      g.add(b);
+    }
+
+    // 8. 转角处内通孔 (Internal Cable Pass Bore)
+    const cornerHole = makeRoundedCylinder(7.5, armW + 2, new THREE.MeshBasicMaterial({ color: 0x05070c }), 1, 32);
+    cornerHole.rotation.z = Math.PI / 2;
+    cornerHole.position.set(0, plateT + 8, plateT + 8);
+    g.add(cornerHole);
+
+    return g;
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 【创新两合一复合大梁 (Hybrid Tube-Plate Link)】
+  // 两端 CNC 6061-T6 抱箍法兰端座 + 中段高模量 3K 编织碳纤圆管
+  // 严格执行 DFM 制造工艺审计：
+  // 1. 彻底消除所有锐边尖角：所有 CNC 内外拐角均为 R2.5~R5 大圆角过渡；
+  // 2. 闭口截面抗扭设计：封闭圆管抗扭刚度达传统开式双铝板 3.8 倍以上；
+  // 3. 剖分式双 M4 沉头抱箍锁紧销 + ISO 9409 PCD 螺栓法兰端面直锁；
+  // 4. 内部预留中心空心中空穿线路径，绝不外露磨线。
+  // ────────────────────────────────────────────────────────────
+  function makeCNCTubeSocket(jointR, jointH, tubeR, socketLen, type) {
+    const g = new THREE.Group();
+    const socketBaseR = jointR * 0.88;
+    const collarR = tubeR + 4.2;
+    const flangeH = Math.min(8, socketLen * 0.28);
+    const collarH = socketLen - flangeH;
+
+    // 1. CNC 阳极黑一体化连接端盖法兰 (Base Flange matching joint diameter, R2.5 钝化圆角)
+    const baseFlange = makeRoundedCylinder(socketBaseR, flangeH, M.anoBlack, 2.0, 48);
+    baseFlange.position.set(0, flangeH / 2, 0);
+    baseFlange.castShadow = true;
+    g.add(baseFlange);
+
+    // 2. 银白 CNC 高光倒角装饰环 (Bevel rim)
+    const bevelRim = makeRoundedCylinder(socketBaseR + 0.6, 1.2, M.chamferSilver, 0.4, 48);
+    bevelRim.position.set(0, flangeH - 0.6, 0);
+    g.add(bevelRim);
+
+    // 3. 6 颗沉孔固定高强黑色螺栓 (DIN 912 M4 PCD 螺栓圈直锁关节)
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3;
+      const bx = Math.cos(angle) * jointR * 0.72;
+      const bz = Math.sin(angle) * jointR * 0.72;
+      const bolt = makeButtonHead(2.6, 2.0, M.blackBolt);
+      bolt.position.set(bx, flangeH + 0.5, bz);
+      g.add(bolt);
+    }
+
+    // 4. 锥形平滑应力过渡台 (Smooth conical fillet taper - 将力矩由法兰平滑扩散到管壁)
+    const taperGeom = new THREE.CylinderGeometry(collarR, socketBaseR * 0.78, collarH * 0.5, 32);
+    const taperMesh = new THREE.Mesh(taperGeom, M.anoSilver);
+    taperMesh.position.set(0, flangeH + collarH * 0.25, 0);
+    taperMesh.castShadow = true;
+    g.add(taperMesh);
+
+    // 5. 剖分式半圆抱箍锁紧套 (Split Clamping Collar Ring)
+    const collarRing = makeRoundedCylinder(collarR, collarH * 0.55, M.anoBlack, 1.5, 48);
+    collarRing.position.set(0, flangeH + collarH * 0.725, 0);
+    collarRing.castShadow = true;
+    g.add(collarRing);
+
+    // 6. 抱箍双侧夹紧耳台与 2 颗 M4 横向对拉不锈钢高强螺栓
+    for (let side of [-1, 1]) {
+      const clampEar = makeRoundedBox(6.5, collarH * 0.48, 10, 1.5, M.anoBlack);
+      clampEar.position.set(side * (collarR + 2.2), flangeH + collarH * 0.725, 0);
+      clampEar.castShadow = true;
+      g.add(clampEar);
+
+      // 横向夹紧内六角螺栓头
+      const clampBolt1 = makeButtonHead(2.2, 2.6, M.blackBolt);
+      clampBolt1.rotation.z = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      clampBolt1.position.set(side * (collarR + 5.5), flangeH + collarH * 0.725 + 2.8, 0);
+      g.add(clampBolt1);
+
+      const clampBolt2 = makeButtonHead(2.2, 2.6, M.blackBolt);
+      clampBolt2.rotation.z = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      clampBolt2.position.set(side * (collarR + 5.5), flangeH + collarH * 0.725 - 2.8, 0);
+      g.add(clampBolt2);
+    }
+
+    // 7. 内孔黑色过线孔 (Central wire passthrough bore)
+    const bore = makeRoundedCylinder(tubeR - 2.0, socketLen + 2, new THREE.MeshBasicMaterial({ color: 0x05070c }), 0.8, 24);
+    bore.position.set(0, socketLen / 2, 0);
+    g.add(bore);
+
+    return g;
+  }
+
+  function makeHybridTubePlateLink(startR, startH, endR, endH, L, width = 48) {
+    const g = new THREE.Group();
+    // 适配各连杆力矩梯度的管径规划 (Link 1: Ø44mm, Link 2: Ø38mm, Link 3: Ø32mm)
+    const tubeR = Math.min(22, Math.max(15, (startR + endR) * 0.34));
+    const socketLen = Math.min(36, Math.max(26, L * 0.18));
+    const spanL = L - socketLen * 2;
+
+    // 1. 上游驱动端 CNC 6061 抱箍法兰端座 (Y = 0)
+    const socketStart = makeCNCTubeSocket(startR, startH, tubeR, socketLen, 'start');
+    socketStart.position.set(0, 0, 0);
+    g.add(socketStart);
+
+    // 2. 下游从动端 CNC 6061 抱箍法兰端座 (Y = L)
+    const socketEnd = makeCNCTubeSocket(endR, endH, tubeR, socketLen, 'end');
+    socketEnd.rotation.x = Math.PI; // 对向朝内
+    socketEnd.position.set(0, L, 0);
+    g.add(socketEnd);
+
+    // 3. 中段高模量 3K 编织碳纤维全闭口管身 (High-Modulus 3K Twill Carbon Tube)
+    // 闭口圆管极惯性矩 Ip = π(D^4-d^4)/32, 具有极高的全向抗扭抗弯比
+    const tubeMesh = makeRoundedCylinder(tubeR, spanL + 8, M.carbon, 0.8, 48);
+    tubeMesh.position.set(0, L / 2, 0);
+    tubeMesh.castShadow = true;
+    tubeMesh.receiveShadow = true;
+    g.add(tubeMesh);
+
+    // 4. 两端接口结合处 CNC 抛光银色防撞锁紧加固环 (Aero Chamfer Trim Rings)
+    for (const y of [socketLen + 2, L - socketLen - 2]) {
+      const trimRing = makeRoundedCylinder(tubeR + 1.2, 3.2, M.chamferSilver, 0.6, 48);
+      trimRing.position.set(0, y, 0);
+      g.add(trimRing);
+    }
+
+    // 5. 碳纤维管身激光镭雕标牌与规格名牌 (Laser Etched Spec Badge)
+    const badgeW = 14;
+    const badgeH = Math.min(48, spanL * 0.42);
+    const badge = makeRoundedBox(badgeW, badgeH, 1.2, 0.6, M.gold);
+    badge.position.set(0, L / 2, tubeR + 0.6);
+    g.add(badge);
+
+    // 6. 橡胶密封暗走线检修过线塞 (Rubber Cable Access Grommet - 柔性防磨)
+    const grommet = makeRoundedCylinder(3.2, 2.5, M.rubber, 0.6, 24);
+    grommet.rotation.x = Math.PI / 2;
+    grommet.position.set(0, socketLen + 8, tubeR);
+    g.add(grommet);
+
+    return g;
+  }
+
+  const makeAluminumDogboneLink = makeTwinPlateLink;
+  const makeCFLink = makeTwinPlateLink;
+  function makeStandardPlateMount() { return new THREE.Group(); }
+  const makeStandardClamp = makeStandardPlateMount;
+
+  // ════════════════════════════════════════════════════════════════
+  // 1. ROBOT ARM 3D ASSEMBLY — CNC ALUMINUM PLATE ARCHITECTURE
+  // 1. 底盘：260×260×20mm 实心高精度光学铝合金面包板底座，8×8 阵列 M6 螺孔矩阵与四角沉头定位螺栓；
+  // 2. 肩台：6061-T6 原色亮银拉丝铝板双耳，立板与后盖形成刚性框架；
+  // 3. 大梁：3 根完整双头圆盘铝合金大梁 (Dogbone Plate Links)，两端直接以 6 颗黑色高强螺栓 (DIN 912) 直锁关节轴心，中段长腰椭圆减重槽与实心六角铝隔柱；
+  // 4. 手腕：全展开银铝板正交弯架，全外露 J5 俯仰、J6 偏航、J7 镜头自转独立电机，末端配备标定三色坐标轴与电影机；
+  // ════════════════════════════════════════════════════════════════
+  const baseGroup = new THREE.Group();
+  armRoot.add(baseGroup);
+
+  // 1.1 工业级实心光学铝合金面包板底盘 (Solid Optical Breadboard Base)
+  const breadboardW = 260;
+  const breadboardH = 20;
+  const breadboardD = 260;
+  const basePlate = makeRoundedBox(breadboardW, breadboardH, breadboardD, 8, M.breadboard);
+  basePlate.position.y = breadboardH / 2;
+  basePlate.receiveShadow = true;
+  basePlate.castShadow = true;
+  baseGroup.add(basePlate);
+
+  // 四周 45° CNC 精铣光亮倒角银边包圈 (Precision Beveled Rim)
+  const bevelRim = makeRoundedBox(breadboardW + 2, 2, breadboardD + 2, 8, M.chamferSilver);
+  bevelRim.position.y = breadboardH;
+  baseGroup.add(bevelRim);
+
+  // 8 × 8 标准光学螺孔矩阵 (64x M6 Counterbored Threaded Inserts)
+  const gridStep = 28;
+  for (let x = -gridStep * 3.5; x <= gridStep * 3.5; x += gridStep) {
+    for (let z = -gridStep * 3.5; z <= gridStep * 3.5; z += gridStep) {
+      if (Math.hypot(x, z) < 46) continue; // 避开中心电机座
+
+      // 银色高亮沉孔外圈 (Silver Chamfer Lip)
+      const holeLip = makeRoundedCylinder(3.5, 2.5, M.chamferSilver, 0.6, 24);
+      holeLip.position.set(x, breadboardH - 0.5, z);
+      baseGroup.add(holeLip);
+
+      // 内螺纹黑色孔眼 (Thread Bore)
+      const holeBore = makeRoundedCylinder(2.0, 6, new THREE.MeshBasicMaterial({ color: 0x05070c }), 0.5, 16);
+      holeBore.position.set(x, breadboardH, z);
+      baseGroup.add(holeBore);
+    }
+  }
+
+  // 四角工作台 M8 重型内六角固定螺栓 (Corner Counterbored Hold-Down Bolts)
+  for (let cx of [-112, 112]) {
+    for (let cz of [-112, 112]) {
+      const cSink = makeRoundedCylinder(8, 4, new THREE.MeshBasicMaterial({ color: 0x080c14 }), 0.8, 32);
+      cSink.position.set(cx, breadboardH, cz);
+      baseGroup.add(cSink);
+
+      const cBolt = makeButtonHead(4.5, 2.8, M.blackBolt);
+      cBolt.position.set(cx, breadboardH + 0.8, cz);
+      baseGroup.add(cBolt);
+    }
+  }
+
+  // 工业航插电缆引出座 (Industrial Circular Cable Flange)
+  const portHousing = makeRoundedCylinder(7, 18, M.anoSilver, 1.2, 32);
+  portHousing.rotation.x = Math.PI / 2;
+  portHousing.position.set(0, 10, -breadboardD / 2 - 8);
+  baseGroup.add(portHousing);
+
+  const strainBoot = makeRoundedCylinder(5, 12, M.flexAlloy, 1.2, 32);
+  strainBoot.rotation.x = Math.PI / 2;
+  strainBoot.position.set(0, 10, -breadboardD / 2 - 20);
+  baseGroup.add(strainBoot);
+
+  const mainCable = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 140, 16), M.rubber);
+  mainCable.rotation.x = Math.PI / 2;
+  mainCable.position.set(0, 10, -breadboardD / 2 - 90);
+  baseGroup.add(mainCable);
+
+  // 1.2 J1 基座水平偏航执行器 (Base Yaw — Module-L Ø80mm x 46mm, Image 3 纯银外观)
+  const J1_Y = breadboardH;
+  const actJ1 = makeActuator(D.DJ12, D.HJ12, M.ledCyan);
+  actJ1.position.y = J1_Y + D.HJ12 / 2;
+  armRoot.add(actJ1);
+
+  // J1 动态旋转节点 (围绕垂直 Y 轴 360° 回转)
+  const nodeJ1 = new THREE.Group();
+  nodeJ1.position.y = J1_Y + D.HJ12;
+  armRoot.add(nodeJ1);
+
+  // 1.3 6061-T6 原色拉丝铝板肩部转塔 (Silver Aluminum Turret & Uprights — Image 1 & 3)
+  const TURRET_R = 54;
+  const turretPlate = makeRoundedCylinder(TURRET_R + 1, 8, M.anoSilver, 1.5, 64);
+  turretPlate.position.y = 4;
+  turretPlate.castShadow = true;
+  nodeJ1.add(turretPlate);
+
+  // 8x M4 黑色转盘螺栓 (DIN 912)
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const b = makeButtonHead(2.6, 2, M.blackBolt);
+    b.position.set(Math.cos(a) * (TURRET_R - 8), 5, Math.sin(a) * (TURRET_R - 8));
+    turretPlate.add(b);
+  }
+
+  // 1.3 越疆工业量产级一体化流线肩部转塔座 (Dobot-Style Integrated Shoulder Turret Housing — 彻底消除突起尖角)
+  const PIVOT_Y = 56;
+  const shoulderYoke = new THREE.Group();
+  nodeJ1.add(shoulderYoke);
+
+  // 1. 肩座主体：高精度 CNC 6061-T6 阳极氧化流线立柱箱体
+  const turretW = 54;
+  const turretH = PIVOT_Y + 12;
+  const turretD = 38;
+  const shoulderBody = makeRoundedBox(turretW, turretH, turretD, 4, M.anoSilver);
+  shoulderBody.position.set(0, turretH / 2 + 4, -D.HJ12 / 2 - 8);
+  shoulderBody.castShadow = true;
+  shoulderYoke.add(shoulderBody);
+
+  // 2. 四周 45° 精铣倒角
+  for (let sx of [-1, 1]) {
+    const trimF = makeRoundedBox(2, turretH, 2, 0.8, M.chamferSilver);
+    trimF.position.set(sx * (turretW / 2 - 1), turretH / 2 + 4, -D.HJ12 / 2 - 8 + turretD / 2 - 1);
+    shoulderYoke.add(trimF);
+
+    const trimR = makeRoundedBox(2, turretH, 2, 0.8, M.chamferSilver);
+    trimR.position.set(sx * (turretW / 2 - 1), turretH / 2 + 4, -D.HJ12 / 2 - 8 - turretD / 2 + 1);
+    shoulderYoke.add(trimR);
+  }
+
+  // J2 uses the same fixed-face register and bolt-circle interface as J3-J5.
+  const j2FixedFlange = makeMountFlange(D.DJ12, 'z', -D.HJ12 / 2 - 2, -1);
+  j2FixedFlange.position.y = PIVOT_Y;
+  shoulderYoke.add(j2FixedFlange);
+
+  // 1.4 J2 肩部垂直俯仰执行器 (Shoulder Pitch — Module-L Ø80mm x 46mm, 悬臂式安装在 L 型夹具垂直法兰面上)
+  const actJ2 = makeActuator(D.DJ12, D.HJ12, M.ledGreen);
+  actJ2.rotation.x = Math.PI / 2;
+  actJ2.position.set(0, PIVOT_Y, 0);
+  shoulderYoke.add(actJ2);
+
+  // J2 动态旋转节点 (围绕水平 Z 轴纯俯仰回转)
+  const nodeJ2 = new THREE.Group();
+  nodeJ2.position.set(0, PIVOT_Y, 0);
+  nodeJ1.add(nodeJ2);
+
+  const j2OutputFlange = makeMountFlange(D.DJ12, 'z', D.HJ12 / 2 + 2, 1, true);
+  nodeJ2.add(j2OutputFlange);
+
+  // ── 全局连杆构件引用 (供大梁构型动态切换：两合一复合管板 vs 经典全铝双板) ──
+  let link1_hybrid, link1_plate;
+  let link2_hybrid, link2_plate;
+  let link3_hybrid, link3_plate;
+
+  // ── 连杆 1：根臂短杆 (Link 1 — 复合两合一大梁 vs 传统全铝双板，长 160mm) ──
+  link1_hybrid = makeHybridTubePlateLink(D.DJ12, D.HJ12, D.DJ34, D.HJ34, D.L1, 48);
+  link1_plate = makeTwinPlateLink(D.DJ12, D.HJ12, D.DJ34, D.HJ34, D.L1, 48);
+  link1_plate.visible = false;
+  nodeJ2.add(link1_hybrid);
+  nodeJ2.add(link1_plate);
+
+  // 1.5 J3 肘部一俯仰 (Elbow 1 Pitch — 距 J2 中心严格为 D.L1 = 160mm)
+  const nodeJ3 = new THREE.Group();
+  nodeJ3.position.set(0, D.L1, 0);
+  nodeJ2.add(nodeJ3);
+
+  // J3 定子固定于上游 Link 1；输出法兰随 Link 2 转动。
+  const actJ3 = makeActuator(D.DJ34, D.HJ34, M.ledAmber);
+  actJ3.rotation.x = Math.PI / 2;
+  actJ3.position.set(0, D.L1, 0);
+  nodeJ2.add(actJ3);
+  const j3FixedFlange = makeMountFlange(D.DJ34, 'z', -D.HJ34 / 2 - 2, -1);
+  j3FixedFlange.position.y = D.L1;
+  nodeJ2.add(j3FixedFlange);
+  nodeJ3.add(makeMountFlange(D.DJ34, 'z', D.HJ34 / 2 + 2, 1, true));
+
+  // ── 连杆 2：中臂大臂 (Link 2 — 复合两合一大梁 vs 传统全铝双板，长 270mm) ──
+  link2_hybrid = makeHybridTubePlateLink(D.DJ34, D.HJ34, D.DJ34, D.HJ34, D.L2, 44);
+  link2_plate = makeTwinPlateLink(D.DJ34, D.HJ34, D.DJ34, D.HJ34, D.L2, 44);
+  link2_plate.visible = false;
+  nodeJ3.add(link2_hybrid);
+  nodeJ3.add(link2_plate);
+
+  // 1.6 J4 肘部二俯仰 (Elbow 2 Pitch — 距 J3 中心严格为 D.L2 = 270mm)
+  const nodeJ4 = new THREE.Group();
+  nodeJ4.position.set(0, D.L2, 0);
+  nodeJ3.add(nodeJ4);
+
+  // J4 定子固定于上游 Link 2；输出法兰随 Link 3 转动。
+  const actJ4 = makeActuator(D.DJ34, D.HJ34, M.ledTeal);
+  actJ4.rotation.x = Math.PI / 2;
+  actJ4.position.set(0, D.L2, 0);
+  nodeJ3.add(actJ4);
+  const j4FixedFlange = makeMountFlange(D.DJ34, 'z', -D.HJ34 / 2 - 2, -1);
+  j4FixedFlange.position.y = D.L2;
+  nodeJ3.add(j4FixedFlange);
+  nodeJ4.add(makeMountFlange(D.DJ34, 'z', D.HJ34 / 2 + 2, 1, true));
+
+  // ──【J4 侧快拆母头对接底座与锁止机构 (Arm-side J4 Quick-Release Female Receiver Socket)】──
+  const j4ReceiverGroup = new THREE.Group();
+  nodeJ4.add(j4ReceiverGroup);
+
+  // 1. CNC 铝合金快拆接收底环 (Ø66mm x 8mm, H7 精密止口)
+  const j4FemaleCollar = makeRoundedCylinder(33, 8, M.mountRotating, 1.2, 64);
+  j4FemaleCollar.rotation.x = Math.PI / 2;
+  j4FemaleCollar.position.set(0, 0, D.HJ34 / 2 + 5);
+  j4ReceiverGroup.add(j4FemaleCollar);
+
+  // 2. 一次快拆偏心凸轮锁紧扳手 (Primary Quick-Release Cam Lever - 琥珀金色)
+  const camLever = makeRoundedBox(8, 22, 6, 2, M.gold);
+  camLever.position.set(32, 6, D.HJ34 / 2 + 5);
+  camLever.rotation.z = -0.3;
+  j4ReceiverGroup.add(camLever);
+
+  // 3. 二次防误触安全释放按栓 (Secondary Safety Push Button - 鲜红色)
+  const safetyReleaseBtn = makeButtonHead(3, 3, M.red);
+  safetyReleaseBtn.position.set(32, 18, D.HJ34 / 2 + 5);
+  j4ReceiverGroup.add(safetyReleaseBtn);
+
+  // 4. 8 组镀金 Pogo Pin 弹性电接触顶针 (8-Pin Spring Pogo Pins for 24V Bus & CAN FD)
+  const pogoBlock = makeRoundedBox(20, 6, 8, 1.5, new THREE.MeshStandardMaterial({color:0x0f172a}));
+  pogoBlock.position.set(0, -18, D.HJ34 / 2 + 5);
+  j4ReceiverGroup.add(pogoBlock);
+  for (let i = -3; i <= 3; i++) {
+    const pin = makeRoundedCylinder(0.8, 3, M.gold, 0.4, 8);
+    pin.rotation.x = Math.PI / 2;
+    pin.position.set(i * 2.4, -18, D.HJ34 / 2 + 7.5);
+    j4ReceiverGroup.add(pin);
+  }
+
+  // ──【可快拆腕部动力构件 (Detachable Wrist Cartridge Module — Link 3 + J5-J7 + 相机)】──
+  const detachableWristModule = new THREE.Group();
+  nodeJ4.add(detachableWristModule);
+
+  // ── 连杆 3：前臂小臂 (Link 3 — 复合两合一大梁 vs 传统全铝双板，长 230mm) ──
+  link3_hybrid = makeHybridTubePlateLink(D.DJ34, D.HJ34, D.DJ567, D.HJ567, D.L3, 40);
+  link3_plate = makeTwinPlateLink(D.DJ34, D.HJ34, D.DJ567, D.HJ567, D.L3, 40);
+  link3_plate.visible = false;
+  detachableWristModule.add(link3_hybrid);
+  detachableWristModule.add(link3_plate);
+
+  // ──【模块根部侧快拆公头卡圈与双保险锁扣 (Wrist Module-side Male QR Collar & Latches)】──
+  const moduleQRGroup = new THREE.Group();
+  detachableWristModule.add(moduleQRGroup);
+
+  // 1. 公头定位法兰环 (Ø60mm x 7mm, h6 精密公差外圆 + 环形卡槽)
+  const maleCollar = makeRoundedCylinder(30, 7, M.mountFixed, 1.2, 64);
+  maleCollar.rotation.x = Math.PI / 2;
+  maleCollar.position.set(0, 0, -2);
+  moduleQRGroup.add(maleCollar);
+
+  // 2. 双侧对称高刚度弹簧锁紧卡爪块 (Dual Captive Latch Claws with Red Safety Pins)
+  for (const side of [-1, 1]) {
+    const latchBlock = makeRoundedBox(9, 18, 8, 2, M.anoBlack);
+    latchBlock.position.set(side * 34, 4, 0);
+    moduleQRGroup.add(latchBlock);
+
+    // 鲜红二次保险销 (Red Safety Locking Pin)
+    const pin = makeButtonHead(2.4, 3, M.red);
+    pin.position.set(side * 34, 10, side * 4);
+    moduleQRGroup.add(pin);
+  }
+
+  // 3. 镀金信号接触金手指排 (Mating Gold Contact Pad Block)
+  const padBlock = makeRoundedBox(18, 5, 4, 1, M.gold);
+  padBlock.position.set(0, -18, -2);
+  moduleQRGroup.add(padBlock);
+
+  // ──【独立扩展底座示意 (Standalone Tabletop & Tripod Dock Base Station)】──
+  // 重型 CNC 铝合金配重底座板 (180 x 160 x 16 mm, 倒大角，深空灰)
+  const basePlinth = makeRoundedBox(180, 16, 160, 6, M.breadboard);
+  basePlinth.position.y = -8;
+  basePlinth.castShadow = true;
+  basePlinth.receiveShadow = true;
+  standaloneHeadRoot.add(basePlinth);
+
+  // 4 颗防滑硅胶避震脚垫 (Underneath Rubber Isolation Feet)
+  for (const dx of [-70, 70]) {
+    for (const dz of [-60, 60]) {
+      const foot = makeRoundedCylinder(10, 6, new THREE.MeshStandardMaterial({color:0x18181b, roughness:0.9}), 1.5, 16);
+      foot.position.set(dx, -18, dz);
+      standaloneHeadRoot.add(foot);
+    }
+  }
+
+  // 底部标准 3/8"-16 & 1/4"-20 三脚架螺孔示意
+  const tripodHole38 = makeRoundedCylinder(4.8, 8, new THREE.MeshBasicMaterial({color:0x000000}), 0.5, 16);
+  tripodHole38.position.set(0, -14, 0);
+  standaloneHeadRoot.add(tripodHole38);
+  const tripodHole14 = makeRoundedCylinder(3.2, 8, new THREE.MeshBasicMaterial({color:0x000000}), 0.5, 16);
+  tripodHole14.position.set(25, -14, 0);
+  standaloneHeadRoot.add(tripodHole14);
+
+  // 独立供电与总线航空插座 (Aviation 4-Pin Power & CAN Bus Ports)
+  const pwrSocket = makeRoundedCylinder(6, 10, M.gold, 1, 20);
+  pwrSocket.rotation.x = Math.PI / 2;
+  pwrSocket.position.set(-45, -6, -82);
+  standaloneHeadRoot.add(pwrSocket);
+  const busSocket = makeRoundedCylinder(5, 10, M.anoSilver, 1, 20);
+  busSocket.rotation.x = Math.PI / 2;
+  busSocket.position.set(-25, -6, -82);
+  standaloneHeadRoot.add(busSocket);
+
+  // 水平气泡水准仪 (Circular Spirit Level Bubble)
+  const levelHousing = makeRoundedCylinder(8, 4, M.anoSilver, 1, 24);
+  levelHousing.position.set(65, 1, 55);
+  standaloneHeadRoot.add(levelHousing);
+  const levelBubble = makeRoundedCylinder(6, 2, new THREE.MeshBasicMaterial({color:0x22c55e}), 0.5, 16);
+  levelBubble.position.set(65, 2.5, 55);
+  standaloneHeadRoot.add(levelBubble);
+
+  // 立柱支撑塔 (Vertical Riser Tower, 60 x 32 x 54 mm)
+  const riserTower = makeRoundedBox(60, 32, 54, 5, M.aluminum);
+  riserTower.position.y = 16;
+  riserTower.castShadow = true;
+  standaloneHeadRoot.add(riserTower);
+
+  // 顶端快拆母座 (Matching QR Female Receiver Collar)
+  const topReceiver = makeRoundedCylinder(33, 8, M.mountFixed, 1.2, 64);
+  topReceiver.position.y = 34;
+  standaloneHeadRoot.add(topReceiver);
+  const dockCamLever = makeRoundedBox(8, 20, 6, 2, M.gold);
+  dockCamLever.position.set(32, 34, 0);
+  standaloneHeadRoot.add(dockCamLever);
+
+  // 醒目金属铭牌 (Metal Nameplate)
+  const namePlate = makeRoundedBox(90, 8, 1.5, 0.5, M.gold);
+  namePlate.position.set(0, -4, 81);
+  standaloneHeadRoot.add(namePlate);
+
+  // ════════════════════════════════════════════════════════════════
+  // 1.7 - 1.10 专业影视级三轴微动防抖云台与腕部总成 (Authentic 3-Axis Gimbal & Wrist Architecture)
+  // 严格忠实于用户实拍图 1 与图 2，彻底解决“差距很大与 J5 方向错误”：
+  // 1. J5 航向回转 (Pan / Forearm Roll): 同轴垂直坐落在 Link 3 顶端 (Y 轴)，360° 水平平移！
+  // 2. 下部 CNC 阳极黑大弧度流线弯臂 (Curved Roll Arm): 优雅后扬环抱，带侧向激光二维码标牌；
+  // 3. J6 横滚电机 (Roll Axis): 位于相机正后方，沿光轴 X 轴水平驱动，保持地平线水平；
+  // 4. 侧向 CNC 弧形 L 臂 (Curved Tilt Arm): 环绕相机左侧，平滑引出至相机横向重心位置；
+  // 5. J7 俯仰电机 (Pitch Axis): 位于相机侧面，沿水平横向 Z 轴驱动，控制相机向上/向下点头；
+  // 6. 相机下托架与阿卡平衡调节滑台 (Camera Balancing Cradle & Arca Slider):
+  //    集成激光镭雕毫米级刻度尺 (0 | 10 | 20 | 30)、凸轮锁紧扳手、红色安全销；
+  // 7. 索尼微单与全包围拓展兔笼 (Sony Alpha & SmallRig Cage):
+  //    底部阿卡快装板、左侧双排 1/4"-20 奶酪孔、银色手拧 HDMI 防脱线夹、流线型 4 瓣花瓣遮光罩！
+  // ════════════════════════════════════════════════════════════════
+  const WRIST_R = D.DJ567; // 28mm (Ø56mm)
+  const WRIST_H = D.HJ567; // 34mm
+
+  // ──【1. 电机 5：J5 航向回转 Pan / Forearm Roll (垂直 Y 轴)】──
+  // 彻底解决用户指出的“最大的问题 就是 j5的方向”！
+  // J5 电机垂直同轴安装在 Link 3 顶端夹箍法兰上 (Y 轴)，与立管完全同心中轴！
+  // 在整臂下为小臂同轴自转 (Forearm Roll)；在独立底座下为水平 360° 航向回转 (Base Pan)！
+  const actJ5 = makeActuator(WRIST_R, WRIST_H, M.ledPurple);
+  actJ5.position.set(0, D.L3 + WRIST_H / 2, 0); // 垂直正立！
+  detachableWristModule.add(actJ5);
+
+  const j5FixedFlange = makeMountFlange(WRIST_R, 'y', D.L3 - 2, 1);
+  detachableWristModule.add(j5FixedFlange);
+
+  const nodeJ5 = new THREE.Group();
+  nodeJ5.position.set(0, D.L3 + WRIST_H, 0); // J5 顶部输出旋转面
+  detachableWristModule.add(nodeJ5);
+
+  // ──【2. 下部 CNC 阳极黑大弧度流线弯臂 (Pan-to-Roll Curved Gimbal Arm)】──
+  // 忠实还原用户图 1 与图 2：从 J5 顶部引出，向后上方大弧度优雅环抱，连接至相机后方的 Roll 电机
+  const lowerCurvedArm = new THREE.Group();
+  nodeJ5.add(lowerCurvedArm);
+
+  // (1) J5 顶部旋转贴合法兰底盘 (Ø56mm x 6mm)
+  const j5TopDisc = makeRoundedCylinder(WRIST_R, 6, M.mountRotating, 1.2, 64);
+  j5TopDisc.position.set(0, 3, 0);
+  j5TopDisc.castShadow = true;
+  lowerCurvedArm.add(j5TopDisc);
+
+  // 4 颗 M4 黑色内六角法兰锁紧螺栓
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const b = makeButtonHead(2.3, 2, M.blackBolt);
+    b.position.set(Math.cos(a) * 20, 5, Math.sin(a) * 20);
+    lowerCurvedArm.add(b);
+  }
+
+  // (2) 优雅弧形铝合金锻压/精铣下弯梁 (Sculpted Curved Lower Roll Arm)
+  // 严格从 J5 顶盘 (0, 3, 0) 向后上方大弧度延展至 J6 电机座 (-48, 54, 0)
+  const armHub = makeRoundedBox(32, 14, 28, 3.5, M.anoBlack);
+  armHub.position.set(-12, 8, 0);
+  armHub.castShadow = true;
+  lowerCurvedArm.add(armHub);
+
+  // 严格计算斜率：dx = -36, dy = +46 -> rotation.z = -0.91 rad (完美连接 J5 与 J6)
+  const armDiagonal = makeRoundedBox(62, 18, 24, 4, M.anoBlack);
+  armDiagonal.position.set(-30, 31, 0);
+  armDiagonal.rotation.z = -0.91; // 顺时针倾斜后扬，左高右低！
+  armDiagonal.castShadow = true;
+  lowerCurvedArm.add(armDiagonal);
+
+  // 弯臂侧向亮银色高光倒角筋条 (CNC Chamfer Bevels)
+  const armBevel = makeRoundedBox(60, 2.2, 24.6, 0.5, M.chamferSilver);
+  armBevel.position.set(-30, 31, 0);
+  armBevel.rotation.z = -0.91;
+  lowerCurvedArm.add(armBevel);
+
+  // 弯臂顶端 J6 电机安装座 (-48, 54, 0)
+  const j6MountHousing = makeRoundedBox(28, 36, 28, 4, M.anoBlack);
+  j6MountHousing.position.set(-48, 54, 0);
+  j6MountHousing.castShadow = true;
+  lowerCurvedArm.add(j6MountHousing);
+
+  // 弯臂侧边白色激光镭雕二维码标牌 (QR Code Badge — 严格忠实于用户图 2 显著细节)
+  const armQrBadge = makeRoundedBox(9, 9, 0.8, 0.4, M.chamferSilver);
+  armQrBadge.position.set(-30, 31, 12.8);
+  armQrBadge.rotation.z = -0.91;
+  lowerCurvedArm.add(armQrBadge);
+
+  // ──【3. 电机 6：J6 横滚电机 Roll Axis Motor (水平 X 轴)】──
+  // 严格还原真实云台：位于相机正后方，电机轴线水平指向前方 (+X 轴)
+  // 负责纠正拍摄地平线，消除侧向倾斜！电机主体置于后方，前端法兰输出至 nodeJ6！
+  const actJ6 = makeActuator(WRIST_R, WRIST_H, M.ledRed);
+  actJ6.rotation.z = Math.PI / 2; // 轴线沿水平 X 轴！
+  actJ6.position.set(-48 - WRIST_H / 2, 54, 0); // x = -65, 紧凑置于臂座后部
+  lowerCurvedArm.add(actJ6);
+
+  const nodeJ6 = new THREE.Group();
+  nodeJ6.position.set(-48, 54, 0); // x = -48mm (J6 前端旋转输出面)
+  lowerCurvedArm.add(nodeJ6);
+
+  // ──【4. 侧向 CNC 阳极黑弧形 L 臂 (Roll-to-Pitch Curved Tilt Arm)】──
+  // 从 J6 前端法兰引出，向相机左侧 (+Z) 避让微单机身，并向前延伸至 X=0 重心横轴
+  const sideCurvedArm = new THREE.Group();
+  nodeJ6.add(sideCurvedArm);
+
+  // (1) J6 前端旋转贴合法兰盘 (Ø56mm x 6mm)
+  const j6OutputDisc = makeRoundedCylinder(WRIST_R, 6, M.mountRotating, 1.2, 64);
+  j6OutputDisc.rotation.z = Math.PI / 2;
+  j6OutputDisc.position.set(3, 0, 0);
+  j6OutputDisc.castShadow = true;
+  sideCurvedArm.add(j6OutputDisc);
+
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const b = makeButtonHead(2.3, 2, M.blackBolt);
+    b.rotation.z = Math.PI / 2;
+    b.position.set(5, Math.cos(a) * 20, Math.sin(a) * 20);
+    sideCurvedArm.add(b);
+  }
+
+  // (2) 侧向横向跨梁 (向 +Z 侧避让微单机身及拓展兔笼 66mm)
+  const sideCrossBeam = makeRoundedBox(20, 20, 66, 4, M.anoBlack);
+  sideCrossBeam.position.set(3, 0, 33);
+  sideCrossBeam.castShadow = true;
+  sideCurvedArm.add(sideCrossBeam);
+
+  // 拐角大圆角过渡 (R10 Fillet)
+  const sideElbow = makeRoundedCylinder(10, 20, M.anoBlack, 3, 32);
+  sideElbow.position.set(3, 0, 66);
+  sideCurvedArm.add(sideElbow);
+
+  // (3) 前向纵梁 (向前伸展 45mm，精确对齐相机重心 X=0)
+  const sideForwardBeam = makeRoundedBox(45, 20, 20, 4, M.anoBlack);
+  sideForwardBeam.position.set(25.5, 0, 66);
+  sideForwardBeam.castShadow = true;
+  sideCurvedArm.add(sideForwardBeam);
+
+  // 侧梁亮银色高光倒角包边
+  const sideBevel = makeRoundedBox(45, 2, 20.6, 0.5, M.chamferSilver);
+  sideBevel.position.set(25.5, 10, 66);
+  sideCurvedArm.add(sideBevel);
+
+  // J7 侧向电机安装底座 (X=48, Z=66)
+  const j7MountHead = makeRoundedBox(28, 36, 22, 4, M.anoBlack);
+  j7MountHead.position.set(48, 0, 66);
+  j7MountHead.castShadow = true;
+  sideCurvedArm.add(j7MountHead);
+
+  // ──【5. 电机 7：J7 俯仰电机 Pitch / Tilt Axis Motor (水平横向 Z 轴)】──
+  // 严格还原真实云台：位于相机左侧，轴线为水平横轴 (Z 轴)，穿过相机镜头光学重心！
+  // 驱动相机向上抬头、向下俯仰点头！电机内侧输出面位于 z = 49mm
+  const actJ7 = makeActuator(WRIST_R, WRIST_H, M.ledYellow);
+  actJ7.rotation.x = Math.PI / 2; // 轴线沿水平 Z 轴！
+  actJ7.position.set(48, 0, 66); // 电机本体位于 z=49~83mm
+  sideCurvedArm.add(actJ7);
+
+  const nodeJ7 = new THREE.Group();
+  nodeJ7.position.set(48, 0, 49); // z = 49mm (J7 内侧向相机旋转输出面，距中轴 49mm)
+  sideCurvedArm.add(nodeJ7);
+
+  // ──【6. 相机下托架与阿卡快装平衡调节滑台 (Camera Balancing Cradle & Arca Slider Total Rig)】──
+  // 由 J7 侧向输出端直接驱动，从侧面垂直下探至相机底部，托起整部相机与拓展兔笼！
+  const cameraCradleGroup = new THREE.Group();
+  nodeJ7.add(cameraCradleGroup);
+
+  // (1) J7 内侧输出旋转贴合法兰 (Ø56mm x 6mm)
+  const j7InnerFlange = makeRoundedCylinder(WRIST_R, 6, M.mountRotating, 1.2, 64);
+  j7InnerFlange.rotation.x = Math.PI / 2;
+  j7InnerFlange.position.set(0, 0, -3);
+  j7InnerFlange.castShadow = true;
+  cameraCradleGroup.add(j7InnerFlange);
+
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const b = makeButtonHead(2.3, 2, M.blackBolt);
+    b.rotation.x = Math.PI / 2;
+    b.position.set(Math.cos(a) * 20, Math.sin(a) * 20, -5);
+    cameraCradleGroup.add(b);
+  }
+
+  // (2) 侧向垂直下探连杆 (从 y=0 下降至 y=-38 相机底座滑台高度，避开侧面线夹)
+  const verticalDropBracket = makeRoundedBox(20, 38, 12, 3.5, M.anoBlack);
+  verticalDropBracket.position.set(0, -19, -4);
+  verticalDropBracket.castShadow = true;
+  cameraCradleGroup.add(verticalDropBracket);
+
+  // (3) 底部水平内伸托臂 (从 z=-4 延伸至 z=-49 处托起相机正下方)
+  const bottomHorizontalArm = makeRoundedBox(26, 12, 45, 3.5, M.anoBlack);
+  bottomHorizontalArm.position.set(0, -38, -26.5);
+  bottomHorizontalArm.castShadow = true;
+  cameraCradleGroup.add(bottomHorizontalArm);
+
+  // (4) 阿卡平衡调节滑轨基座 (Arca-Swiss Balancing Slider Arm — 忠实还原用户图 2)
+  const arcaSliderTrack = makeRoundedBox(68, 12, 48, 2.5, M.anoBlack);
+  arcaSliderTrack.position.set(0, -38, -49);
+  arcaSliderTrack.castShadow = true;
+  cameraCradleGroup.add(arcaSliderTrack);
+
+  // 激光镭雕白色毫米平衡刻度尺 (Laser-Etched Scale: 0 | 10 | 20 | 30 — 图 2 核心特征)
+  for (let i = -4; i <= 4; i++) {
+    const isMajor = (i % 2 === 0);
+    const tick = makeRoundedBox(isMajor ? 10 : 5, 1.2, 0.8, 0.2, M.chamferSilver);
+    tick.position.set(i * 5, -31.5, -49 + (isMajor ? 0 : 2));
+    cameraCradleGroup.add(tick);
+  }
+
+  // 阿卡快装夹座 (Arca-Swiss QR Clamp Receiver)
+  const arcaClampReceiver = makeRoundedBox(38, 8, 44, 2, M.anoSilver);
+  arcaClampReceiver.position.set(0, -32, -49);
+  arcaClampReceiver.castShadow = true;
+  cameraCradleGroup.add(arcaClampReceiver);
+
+  // 快装夹紧锁止凸轮手拧扳手与红色安全销 (Quick-Release Lever & Safety Pin)
+  const qrLever = makeRoundedBox(6, 18, 5, 1.5, M.gold);
+  qrLever.position.set(24, -32, -49);
+  qrLever.rotation.z = 0.2;
+  cameraCradleGroup.add(qrLever);
+
+  const qrSafetyBtn = makeButtonHead(2.5, 2.5, M.red);
+  qrSafetyBtn.position.set(-24, -32, -49);
+  cameraCradleGroup.add(qrSafetyBtn);
+
+  // ──【7. 摄影机总成与拓展兔笼套件 (Camera Rig & SmallRig Cage — 严格还原图 1)】──
+  // 相机装在拓展兔笼中，通过底部阿卡鸠尾板紧固在平衡夹座上！
+  // 相机机身中心严格对齐 (0, 0, -49)，使得在 nodeJ5 坐标系下相机中心为 (0, 54, 0)！
+  // 实现了真正的三轴同心调平 (Concentric Balancing)：
+  // 绕 J5 航向转动无偏心离心距；绕 J6 横滚严格绕光轴；绕 J7 俯仰严格绕质心！
+  const cineRig = new THREE.Group();
+  cineRig.position.set(0, 0, -49);
+  cameraCradleGroup.add(cineRig);
+
+  // 索尼微单机身主体 (Sony Alpha Mirrorless Body)
+  const camBodyGroup = new THREE.Group();
+  cineRig.add(camBodyGroup);
+
+  const mainBody = makeRoundedBox(44, 48, 62, 4, M.camBody);
+  mainBody.castShadow = true;
+  camBodyGroup.add(mainBody);
+
+  const grip = makeRoundedBox(18, 44, 22, 4, M.rubber);
+  grip.position.set(8, -1, -22);
+  grip.castShadow = true;
+  camBodyGroup.add(grip);
+
+  const shutterBtn = makeButtonHead(3.2, 2.5, M.chamferSilver);
+  shutterBtn.position.set(14, 23, -22);
+  camBodyGroup.add(shutterBtn);
+
+  const evfHump = makeRoundedBox(20, 12, 22, 2.5, M.camBody);
+  evfHump.position.set(-2, 28, 0);
+  evfHump.castShadow = true;
+  camBodyGroup.add(evfHump);
+
+  const hotShoe = makeRoundedBox(14, 2.5, 12, 0.8, M.blackBolt);
+  hotShoe.position.set(-2, 34.5, 0);
+  camBodyGroup.add(hotShoe);
+
+  const modeDial = makeRoundedCylinder(5.5, 4, M.blackBolt, 0.8, 24);
+  modeDial.position.set(-10, 26, 18);
+  camBodyGroup.add(modeDial);
+
+  const lcdFrame = makeRoundedBox(4, 34, 46, 2, M.blackBolt);
+  lcdFrame.position.set(-23, -1, 3);
+  camBodyGroup.add(lcdFrame);
+
+  const lcdGlass = makeRoundedBox(1, 28, 40, 1, new THREE.MeshStandardMaterial({ color: 0x070b12, roughness: 0.1, metalness: 0.9 }));
+  lcdGlass.position.set(-25.2, -1, 3);
+  camBodyGroup.add(lcdGlass);
+
+  for (let i = -1; i <= 1; i++) {
+    const btn = makeButtonHead(1.6, 1.2, M.anoSilver);
+    btn.rotation.z = -Math.PI / 2;
+    btn.position.set(-24.5, i * 9 - 4, -22);
+    camBodyGroup.add(btn);
+  }
+  const recDot = makeButtonHead(1.8, 1.2, M.red);
+  recDot.rotation.z = -Math.PI / 2;
+  recDot.position.set(-24.5, 12, -22);
+  camBodyGroup.add(recDot);
+
+  const mountRing = new THREE.Mesh(new THREE.TorusGeometry(17, 1.4, 16, 48), M.copper);
+  mountRing.rotation.y = Math.PI / 2;
+  mountRing.position.set(22.2, 0, 0);
+  camBodyGroup.add(mountRing);
+
+  // 镜头总成 (Lens & Ribbed Rings & Petal Hood)
+  const lensGroup = new THREE.Group();
+  lensGroup.position.set(22, 0, 0);
+  cineRig.add(lensGroup);
+
+  const lensBase = makeRoundedCylinder(20, 16, M.anoBlack, 1.2, 48);
+  lensBase.rotation.z = Math.PI / 2;
+  lensBase.position.set(8, 0, 0);
+  lensGroup.add(lensBase);
+
+  const lensBody = makeRoundedCylinder(23, 28, M.anoBlack, 1.5, 48);
+  lensBody.rotation.z = Math.PI / 2;
+  lensBody.position.set(30, 0, 0);
+  lensGroup.add(lensBody);
+
+  for (const bx of [18, 36]) {
+    const ring = makeRoundedCylinder(23.6, 7, M.rubber, 0.6, 48);
+    ring.rotation.z = Math.PI / 2;
+    ring.position.set(bx, 0, 0);
+    lensGroup.add(ring);
+  }
+
+  const gBadge = makeRoundedBox(1, 5, 5, 0.8, M.red);
+  gBadge.position.set(30, 0, 23.8);
+  lensGroup.add(gBadge);
+
+  const frontGlass = new THREE.Mesh(new THREE.CircleGeometry(20, 36), M.lens);
+  frontGlass.rotation.y = Math.PI / 2;
+  frontGlass.position.set(44.2, 0, 0);
+  lensGroup.add(frontGlass);
+
+  const petalHood = makePetalLensHood(22, 26, 14, 8, M.anoBlack);
+  petalHood.position.set(44, 0, 0);
+  petalHood.castShadow = true;
+  lensGroup.add(petalHood);
+
+  // 专业全包围拓展兔笼 (SmallRig / Tilta 风格阳极黑兔笼)
+  const passiveCameraCage = new THREE.Group();
+  cineRig.add(passiveCameraCage);
+
+  // 顶部承重顶梁与 NATO 滑轨
+  const topPlate = makeRoundedBox(46, 5, 68, 2, M.anoBlack);
+  topPlate.position.set(0, 29, 0);
+  topPlate.castShadow = true;
+  passiveCameraCage.add(topPlate);
+
+  const topNatoRail = makeRoundedBox(36, 3.2, 19, 1, M.anoBlack);
+  topNatoRail.position.set(0, 32.5, 0);
+  passiveCameraCage.add(topNatoRail);
+
+  const topColdShoe = makeRoundedBox(15, 3.5, 15, 0.8, M.anoSilver);
+  topColdShoe.position.set(-2, 33, -25);
+  passiveCameraCage.add(topColdShoe);
+
+  for (const bz of [-16, 16]) {
+    const brassBush = makeRoundedCylinder(2.2, 3, M.gold, 0.5, 16);
+    brassBush.position.set(-14, 32.5, bz);
+    passiveCameraCage.add(brassBush);
+  }
+
+  // 左侧立柱奶酪板 (双排 1/4"-20 螺孔 + 银色高光倒角)
+  const leftCheesePlate = makeRoundedBox(44, 56, 5.5, 2.5, M.anoBlack);
+  leftCheesePlate.position.set(0, 1, 34);
+  leftCheesePlate.castShadow = true;
+  passiveCameraCage.add(leftCheesePlate);
+
+  for (let r = -3; r <= 3; r += 2) {
+    for (let c of [-10, 10]) {
+      const holeMesh = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 7, 16), new THREE.MeshBasicMaterial({ color: 0x080c14 }));
+      holeMesh.rotation.x = Math.PI / 2;
+      holeMesh.position.set(c, 1 + r * 7, 34);
+      passiveCameraCage.add(holeMesh);
+
+      const rim = makeRoundedCylinder(3.0, 0.8, M.chamferSilver, 0.3, 16);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.set(c, 1 + r * 7, 36.8);
+      passiveCameraCage.add(rim);
+    }
+  }
+
+  // 侧向银色高光手拧防脱线夹 (Silver CNC Cable Clamp — 图 1 标志特征！)
+  const clampBracket = makeRoundedBox(14, 16, 8, 1.8, M.anoBlack);
+  clampBracket.position.set(12, -7, 38);
+  clampBracket.castShadow = true;
+  passiveCameraCage.add(clampBracket);
+
+  const silverThumbKnob = makeRoundedCylinder(4.2, 10, M.chamferSilver, 0.8, 24);
+  silverThumbKnob.rotation.x = Math.PI / 2;
+  silverThumbKnob.position.set(12, -7, 45);
+  silverThumbKnob.castShadow = true;
+  passiveCameraCage.add(silverThumbKnob);
+
+  const cableMat = new THREE.MeshStandardMaterial({ color: 0x141822, roughness: 0.65 });
+  const cablePath = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 36, 16), cableMat);
+  cablePath.position.set(12, -22, 39);
+  passiveCameraCage.add(cablePath);
+
+  // 右侧开放式立柱 (露出右手手柄蒙皮)
+  const rightFrontPost = makeRoundedBox(8, 44, 5, 2, M.anoBlack);
+  rightFrontPost.position.set(18, -2, -33);
+  passiveCameraCage.add(rightFrontPost);
+
+  // 底部阿卡一体化快装底板 (嵌合在平衡滑台夹座中)
+  const arcaBaseplate = makeRoundedBox(46, 6, 68, 2, M.anoBlack);
+  arcaBaseplate.position.set(0, -26, 0);
+  arcaBaseplate.castShadow = true;
+  passiveCameraCage.add(arcaBaseplate);
+
+  for (let sz of [-1, 1]) {
+    const dtBevel = makeRoundedBox(44, 2, 3, 0.5, M.chamferSilver);
+    dtBevel.position.set(0, -28.5, sz * 32.5);
+    passiveCameraCage.add(dtBevel);
+  }
+
+  passiveCameraCage.visible = true;
+
+  // Tool Center Point (TCP) Target Node — 指向花瓣遮光罩前端
+  const tcpTrihedron = new THREE.Group();
+  tcpTrihedron.position.set(88, 0, -32);
+  cameraCradleGroup.add(tcpTrihedron);
+
+  // Mount cineCam onto TCP looking along +X vector
+  cineCam.position.set(0, 0, 0);
+  cineCam.lookAt(1, 0, 0);
+  tcpTrihedron.add(cineCam);
+
+  // Calibration Rig
+  const calibRig = new THREE.Group();
+  tcpTrihedron.add(calibRig);
+
+  const SPHERE_X = 15;
+  const centerSphere = new THREE.Mesh(new THREE.SphereGeometry(6, 32, 32), M.blackBolt);
+  centerSphere.position.set(SPHERE_X, 0, 0);
+  centerSphere.castShadow = true;
+  calibRig.add(centerSphere);
+
+  const ROD_R = 2.2;
+  const ROD_L = 55;
+  const rodMatX = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.25, metalness: 0.25 });
+  const rodX = new THREE.Mesh(new THREE.CylinderGeometry(ROD_R, ROD_R, ROD_L, 20), rodMatX);
+  rodX.rotation.z = -Math.PI / 2;
+  rodX.position.set(SPHERE_X + ROD_L / 2, 0, 0);
+  rodX.castShadow = true;
+  calibRig.add(rodX);
+
+  const rodMatY = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.25, metalness: 0.25 });
+  const rodY = new THREE.Mesh(new THREE.CylinderGeometry(ROD_R, ROD_R, ROD_L, 20), rodMatY);
+  rodY.position.set(SPHERE_X, ROD_L / 2, 0);
+  rodY.castShadow = true;
+  calibRig.add(rodY);
+
+  const rodMatZ = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.25, metalness: 0.25 });
+  const rodZ = new THREE.Mesh(new THREE.CylinderGeometry(ROD_R, ROD_R, ROD_L, 20), rodMatZ);
+  rodZ.rotation.x = Math.PI / 2;
+  rodZ.position.set(SPHERE_X, 0, ROD_L / 2);
+  rodZ.castShadow = true;
+  calibRig.add(rodZ);
+
+  calibRig.visible = false;
+  cineRig.visible = true;
+
+  const toolFlangeGroup = cameraCradleGroup;
+  let eeModeIndex = 2; // 0: trihedron, 1: bare camera, 2: camera + cage, 3: both
+  window.cycleEndEffector = function(btn) {
+    eeModeIndex = (eeModeIndex + 1) % 4;
+    if (eeModeIndex === 0) {
+      calibRig.visible = true;
+      cineRig.visible = false;
+      passiveCameraCage.visible = false;
+      if (btn) btn.innerHTML = '🎯 工业标定轴';
+    } else if (eeModeIndex === 1) {
+      calibRig.visible = false;
+      cineRig.visible = true;
+      passiveCameraCage.visible = false;
+      if (btn) btn.innerHTML = '🎥 索尼微单 (裸机)';
+    } else if (eeModeIndex === 2) {
+      calibRig.visible = false;
+      cineRig.visible = true;
+      passiveCameraCage.visible = true;
+      if (btn) btn.innerHTML = '🎬 索尼微单 + 拓展兔笼 (图示款)';
+    } else {
+      calibRig.visible = true;
+      cineRig.visible = true;
+      passiveCameraCage.visible = true;
+      if (btn) btn.innerHTML = '✨ 标定轴 + 兔笼微单';
+    }
+  };
+
+  window.toolFlangeGlobal = tcpTrihedron;
+  window.tcpTarget = tcpTrihedron;
+
+  // ════════════════════════════════════════════════════════════════
+  // 2. ULTRA-DETAILED ACTUATOR CUTAWAY & EXPLODED VIEW ASSEMBLY
+  // ════════════════════════════════════════════════════════════════
+  const cutawayGroup = new THREE.Group();
+  cutawayGroup.position.set(0, 320, 0);
+  cutawayGroup.visible = false;
+  scene.add(cutawayGroup);
+
+  // Sub-parts stored in map for axial explosion
+  const explodePartsMap = {};
+
+  // Part 1: Stator Housing (CNC 7075-T6, 90° Cutaway)
+  const gHousing = new THREE.Group();
+  explodePartsMap['housing'] = gHousing;
+  cutawayGroup.add(gHousing);
+  // Outer cylindrical shell with 3/4 circle (cutaway quadrant)
+  const housingOuter = new THREE.Mesh(
+    new THREE.CylinderGeometry(42, 42, 48, 48, 1, false, 0, Math.PI * 1.5),
+    M.anoBlack
+  );
+  housingOuter.rotation.x = Math.PI/2;
+  gHousing.add(housingOuter);
+  // Base flange
+  const housingFlange = new THREE.Mesh(
+    new THREE.CylinderGeometry(47, 47, 6, 48, 1, false, 0, Math.PI * 1.5),
+    M.anoBlack
+  );
+  housingFlange.position.z = -21;
+  housingFlange.rotation.x = Math.PI/2;
+  gHousing.add(housingFlange);
+  // Mounting holes on flange
+  for(let i=0; i<6; i++) {
+    const a = (i/6)*Math.PI*2;
+    if(a <= Math.PI*1.5) {
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(2,2,8,12), new THREE.MeshBasicMaterial({color:0x020406}));
+      h.position.set(Math.cos(a)*44, Math.sin(a)*44, -21);
+      h.rotation.x = Math.PI/2;
+      gHousing.add(h);
+    }
+  }
+
+  // Part 2: Frameless Stator (12-Slot Iron Core + Copper Windings)
+  const gStator = new THREE.Group();
+  explodePartsMap['stator'] = gStator;
+  cutawayGroup.add(gStator);
+  const statorCore = new THREE.Mesh(
+    new THREE.CylinderGeometry(35, 35, 14, 48, 1, false, 0, Math.PI * 1.5),
+    new THREE.MeshStandardMaterial({ color:0x334155, roughness:0.45, metalness:0.8 })
+  );
+  statorCore.rotation.x = Math.PI/2;
+  statorCore.position.z = -12;
+  gStator.add(statorCore);
+  // 12 Copper coil teeth
+  for(let i=0; i<12; i++) {
+    const a = (i/12)*Math.PI*2;
+    if(a <= Math.PI*1.5) {
+      const coil = new THREE.Mesh(new THREE.BoxGeometry(4.5, 9, 13), M.copper);
+      coil.position.set(Math.cos(a)*27, Math.sin(a)*27, -12);
+      coil.rotation.z = a;
+      gStator.add(coil);
+    }
+  }
+
+  // Part 3: Outer Rotor & NdFeB Magnets
+  const gRotor = new THREE.Group();
+  explodePartsMap['rotor'] = gRotor;
+  cutawayGroup.add(gRotor);
+  const rotorBell = new THREE.Mesh(
+    new THREE.CylinderGeometry(38, 38, 16, 48, 1, false, 0, Math.PI * 1.5),
+    M.steel
+  );
+  rotorBell.rotation.x = Math.PI/2;
+  rotorBell.position.z = -6;
+  gRotor.add(rotorBell);
+  // Magnets glued inside rotor bell
+  for(let i=0; i<14; i++) {
+    const a = (i/14)*Math.PI*2;
+    if(a <= Math.PI*1.5) {
+      const mag = new THREE.Mesh(new THREE.BoxGeometry(3, 7.5, 14), M.magnet);
+      mag.position.set(Math.cos(a)*36, Math.sin(a)*36, -6);
+      mag.rotation.z = a;
+      gRotor.add(mag);
+    }
+  }
+
+  // Part 4: Harmonic Wave Generator (Elliptical Cam + Thin-wall Bearing)
+  const gWaveGen = new THREE.Group();
+  explodePartsMap['waveGen'] = gWaveGen;
+  cutawayGroup.add(gWaveGen);
+  // Elliptical core
+  const camGeom = new THREE.CylinderGeometry(23, 23, 10, 48);
+  camGeom.scale(1.18, 1.0, 0.88); // elliptical deformation!
+  const camMesh = new THREE.Mesh(camGeom, M.waveCam);
+  camMesh.rotation.x = Math.PI/2;
+  camMesh.position.z = 2;
+  gWaveGen.add(camMesh);
+  // Flexible ball bearing ring
+  const flexBearingRing = new THREE.Mesh(new THREE.TorusGeometry(23.5, 1.8, 16, 48), M.steel);
+  flexBearingRing.scale.set(1.18, 0.88, 1.0);
+  flexBearingRing.position.z = 2;
+  gWaveGen.add(flexBearingRing);
+
+  // Part 5: Harmonic Circular Spline (Rigid Ring Gear fixed to Housing)
+  const gCircularSpline = new THREE.Group();
+  explodePartsMap['circularSpline'] = gCircularSpline;
+  cutawayGroup.add(gCircularSpline);
+  const circRing = new THREE.Mesh(
+    new THREE.CylinderGeometry(41, 41, 10, 48, 1, false, 0, Math.PI * 1.5),
+    new THREE.MeshStandardMaterial({ color:0x475569, roughness:0.25, metalness:0.85 })
+  );
+  circRing.rotation.x = Math.PI/2;
+  circRing.position.z = 8;
+  gCircularSpline.add(circRing);
+  // Internal gear tooth ridge
+  const circTeeth = new THREE.Mesh(
+    new THREE.CylinderGeometry(30.2, 30.2, 9, 64, 1, true, 0, Math.PI * 1.5),
+    M.steel
+  );
+  circTeeth.rotation.x = Math.PI/2;
+  circTeeth.position.z = 8;
+  gCircularSpline.add(circTeeth);
+
+  // Part 6: Harmonic Flexspline Cup (Flexible alloy cup)
+  const gFlexspline = new THREE.Group();
+  explodePartsMap['flexspline'] = gFlexspline;
+  cutawayGroup.add(gFlexspline);
+  // Cup body
+  const flexCup = new THREE.Mesh(
+    new THREE.CylinderGeometry(29.8, 29.8, 24, 48, 1, true, 0, Math.PI * 1.5),
+    M.flexAlloy
+  );
+  flexCup.rotation.x = Math.PI/2;
+  flexCup.position.z = 5;
+  gFlexspline.add(flexCup);
+  // Cup base flange (output interface)
+  const flexBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(29.8, 29.8, 4, 48, 1, false, 0, Math.PI * 1.5),
+    M.flexAlloy
+  );
+  flexBase.rotation.x = Math.PI/2;
+  flexBase.position.z = 17;
+  gFlexspline.add(flexBase);
+
+  // Part 7: Precision Cross-Roller Bearing
+  const gCrossRoller = new THREE.Group();
+  explodePartsMap['crossRoller'] = gCrossRoller;
+  cutawayGroup.add(gCrossRoller);
+  // Bearing outer ring
+  const crOuter = new THREE.Mesh(
+    new THREE.CylinderGeometry(42, 42, 8, 48, 1, false, 0, Math.PI * 1.5),
+    M.steel
+  );
+  crOuter.rotation.x = Math.PI/2;
+  crOuter.position.z = 16;
+  gCrossRoller.add(crOuter);
+  // Bearing inner ring
+  const crInner = new THREE.Mesh(
+    new THREE.CylinderGeometry(31, 31, 8, 48, 1, false, 0, Math.PI * 1.5),
+    M.steel
+  );
+  crInner.rotation.x = Math.PI/2;
+  crInner.position.z = 16;
+  gCrossRoller.add(crInner);
+  // 90° Crossed cylindrical rollers
+  for(let i=0; i<18; i++) {
+    const a = (i/18)*Math.PI*2;
+    if(a <= Math.PI*1.5) {
+      const roller = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 5, 12), M.rollerSteel);
+      roller.position.set(Math.cos(a)*36.5, Math.sin(a)*36.5, 16);
+      roller.rotation.x = (i%2===0 ? Math.PI/4 : -Math.PI/4);
+      roller.rotation.y = a;
+      gCrossRoller.add(roller);
+    }
+  }
+
+  // Part 8: Output Drive Flange
+  const gOutputFlange = new THREE.Group();
+  explodePartsMap['outputFlange'] = gOutputFlange;
+  cutawayGroup.add(gOutputFlange);
+  const outDisc = new THREE.Mesh(
+    new THREE.CylinderGeometry(42, 42, 6, 48, 1, false, 0, Math.PI * 1.5),
+    M.anoSilver
+  );
+  outDisc.rotation.x = Math.PI/2;
+  outDisc.position.z = 24;
+  gOutputFlange.add(outDisc);
+  // 6x M4 Mounting holes on PCD 68
+  for(let i=0; i<6; i++) {
+    const a = (i/6)*Math.PI*2;
+    if(a <= Math.PI*1.5) {
+      const bHole = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 7, 12), new THREE.MeshBasicMaterial({color:0x020406}));
+      bHole.position.set(Math.cos(a)*34, Math.sin(a)*34, 24);
+      bHole.rotation.x = Math.PI/2;
+      gOutputFlange.add(bHole);
+    }
+  }
+
+  // Part 9: Dual Absolute Encoders
+  const gDualEncoder = new THREE.Group();
+  explodePartsMap['dualEncoder'] = gDualEncoder;
+  cutawayGroup.add(gDualEncoder);
+  // High-speed encoder PCB at rear
+  const rearPcb = new THREE.Mesh(new THREE.RingGeometry(12, 34, 32), M.pcbGreen);
+  rearPcb.position.z = -23;
+  gDualEncoder.add(rearPcb);
+  const mt6701Chip = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 1.5), new THREE.MeshStandardMaterial({color:0x0f172a,roughness:0.3}));
+  mt6701Chip.position.set(0, 18, -22);
+  gDualEncoder.add(mt6701Chip);
+  // Low-speed magnetic grating ring on output
+  const outMagRing = new THREE.Mesh(new THREE.TorusGeometry(32, 1.2, 12, 48), new THREE.MeshStandardMaterial({color:0xec4899,roughness:0.2}));
+  outMagRing.position.z = 27;
+  gDualEncoder.add(outMagRing);
+
+  // Part 10: Hollow Conduit & CAN-FD / Power Bus Cables
+  const gHollowShaft = new THREE.Group();
+  explodePartsMap['hollowShaft'] = gHollowShaft;
+  cutawayGroup.add(gHollowShaft);
+  // Stainless steel through-bore conduit
+  const conduit = new THREE.Mesh(
+    new THREE.CylinderGeometry(7.5, 7.5, 68, 32, 1, true),
+    M.steel
+  );
+  conduit.rotation.x = Math.PI/2;
+  conduit.position.z = 2;
+  gHollowShaft.add(conduit);
+  // Wires inside conduit (CAN_H, CAN_L, 24V, GND)
+  const wireCANH = new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,84,10), M.cableBlue);
+  wireCANH.position.set(2, 2, 2); wireCANH.rotation.x = Math.PI/2; gHollowShaft.add(wireCANH);
+  const wireCANL = new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,84,10), M.cableYellow);
+  wireCANL.position.set(-2, 2, 2); wireCANL.rotation.x = Math.PI/2; gHollowShaft.add(wireCANL);
+  const wire24V = new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,84,10), M.cableRed);
+  wire24V.position.set(-2, -2, 2); wire24V.rotation.x = Math.PI/2; gHollowShaft.add(wire24V);
+  const wireGND = new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,84,10), M.cableBlack);
+  wireGND.position.set(2, -2, 2); wireGND.rotation.x = Math.PI/2; gHollowShaft.add(wireGND);
+
+  // Central axis guideline (dotted line in Exploded mode)
+  const axisLineGeom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, -300),
+    new THREE.Vector3(0, 0, 300)
+  ]);
+  const axisLine = new THREE.Line(axisLineGeom, new THREE.LineDashedMaterial({ color:0x38bdf8, dashSize:4, gapSize:3, transparent:true, opacity:0.4 }));
+  axisLine.computeLineDistances();
+  cutawayGroup.add(axisLine);
+
+  // ════════════════════════════════════════════════════════════════
+  // 3. EXPLOSION ANIMATION CONTROLLER
+  // ════════════════════════════════════════════════════════════════
+  let currentExplosionDist = 0;
+  const sliderExplode = document.getElementById('slider-explode');
+  if(sliderExplode) {
+    sliderExplode.addEventListener('input', e => {
+      setExplosion(parseFloat(e.target.value));
+    });
+  }
+
+  function setExplosion(dist) {
+    currentExplosionDist = dist;
+    if(sliderExplode) sliderExplode.value = dist;
+    document.getElementById('explode-dist-val').textContent = Math.round(dist) + ' mm';
+
+    // Displace each part according to its engineering stack sequence
+    ACTUATOR_PARTS.forEach(part => {
+      const g = explodePartsMap[part.id];
+      if(g) {
+        // Translation along Z axis (joint rotation axis)
+        g.position.z = dist * part.distMultiplier * 0.85;
+      }
+    });
+  }
+  window.setExplosion = setExplosion;
+
+  // ════════════════════════════════════════════════════════════════
+  // 3.5 GLASSMORPHIC DROPDOWNS CONTROLLER
+  // ════════════════════════════════════════════════════════════════
+  function toggleDropdown(id, event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    const target = document.getElementById(id);
+    if (!target) return;
+    const isCurrentlyOpen = target.classList.contains('open');
+    closeAllDropdowns();
+    if (!isCurrentlyOpen) {
+      target.classList.add('open');
+    }
+  }
+  window.toggleDropdown = toggleDropdown;
+
+  function closeAllDropdowns() {
+    document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+  window.closeAllDropdowns = closeAllDropdowns;
+
+  window.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown')) {
+      closeAllDropdowns();
+    }
+  });
+
+  function selectAppMode(mode) {
+    closeAllDropdowns();
+    switchAppMode(mode);
+  }
+  window.selectAppMode = selectAppMode;
+
+  function selectWristMorph(morph) {
+    closeAllDropdowns();
+    setWristMorphology(morph);
+  }
+  window.selectWristMorph = selectWristMorph;
+
+  function selectBeamArch(arch) {
+    closeAllDropdowns();
+    setBeamArchitecture(arch);
+  }
+  window.selectBeamArch = selectBeamArch;
+
+  function selectCamView(view) {
+    closeAllDropdowns();
+    if (view === 'gimbal') {
+      focusGimbalView();
+    } else {
+      setCameraView(view);
+    }
+  }
+  window.selectCamView = selectCamView;
+
+  // ════════════════════════════════════════════════════════════════
+  // 4. APP MODE SWITCHER (Arm / Cutaway / Exploded)
+  // ════════════════════════════════════════════════════════════════
+  let currentMode = 'arm';
+
+  function switchAppMode(mode) {
+    currentMode = mode;
+    stopAnim();
+    if (mode !== 'modular') setWristModuleDetached(false);
+
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    const curBtn = document.getElementById('btn-mode-' + mode);
+    if (curBtn) curBtn.classList.add('active');
+
+    const modeNames = {
+      arm: '🦾 7轴冗余机械臂',
+      arm6: '🦾 6轴标准工业机械臂',
+      modular: '🧩 模块化大梁拓扑',
+      cutaway: '🔬 执行器内部剖切',
+      exploded: '💥 零件爆炸分解'
+    };
+    const modeLbl = document.getElementById('dd-mode-label');
+    if (modeLbl && modeNames[mode]) modeLbl.textContent = modeNames[mode];
+
+    const secArm = document.getElementById('sec-arm');
+    const secCut = document.getElementById('sec-cutaway');
+    const secMod = document.getElementById('sec-modular');
+    const pipMon = document.getElementById('pip-monitor');
+    const specTitle = document.getElementById('spec-header-title');
+    const specBadge = document.getElementById('spec-header-badge');
+    const camBtns = document.getElementById('camera-btn-group');
+
+    if(mode === 'arm' || mode === 'arm6') {
+      secArm.classList.add('active');
+      secCut.classList.remove('active');
+      if (secMod) secMod.classList.remove('active');
+      pipMon.style.display = 'block';
+      camBtns.style.display = 'flex';
+      armRoot.visible = true;
+      cutawayGroup.visible = false;
+      document.getElementById('part-callout').classList.remove('show');
+
+      const is6Dof = (mode === 'arm6');
+      const j4Row = document.getElementById('joint-row-J4');
+      if (j4Row) {
+        if (is6Dof) {
+          j4Row.style.opacity = '0.4';
+          j4Row.style.pointerEvents = 'none';
+          angles.J4 = 0;
+          const s4 = document.getElementById('slider-J4');
+          if (s4) s4.value = 0;
+          const v4 = document.getElementById('val-J4');
+          if (v4) v4.textContent = '0° (已锁定)';
+        } else {
+          j4Row.style.opacity = '1.0';
+          j4Row.style.pointerEvents = 'auto';
+          const v4 = document.getElementById('val-J4');
+          if (v4) v4.textContent = angles.J4 + '°';
+        }
+      }
+
+      document.getElementById('sidebar-panel-title').innerHTML = is6Dof ? '🔧 6 轴标准工业运动控制台' : '🔧 7 轴冗余运动控制台';
+      document.getElementById('sidebar-status-pill').textContent = is6Dof ? '6-DOF 标准工业姿态' : '7-DOF 冗余运动学姿态';
+      specTitle.textContent = is6Dof ? '工业构型 — 6自由度标准臂' : '前沿构型 — 7自由度冗余臂';
+      specBadge.textContent = is6Dof ? '6-DOF INDUSTRIAL' : '7-DOF REDUNDANT';
+      renderSpecOverlay('arm');
+      applyPose();
+
+      // Camera to Arm view
+      mainCam.position.set(900, 600, 1100);
+      if (window.controls) {
+        controls.target.set(0, 350, 0);
+        controls.update();
+      } else {
+        mainCam.lookAt(0, 350, 0);
+      }
+    }
+    else if(mode === 'modular') {
+      secArm.classList.remove('active');
+      secCut.classList.remove('active');
+      if (secMod) secMod.classList.add('active');
+      pipMon.style.display = 'block';
+      camBtns.style.display = 'flex';
+      armRoot.visible = true;
+      cutawayGroup.visible = false;
+      document.getElementById('part-callout').classList.remove('show');
+
+      document.getElementById('sidebar-panel-title').innerHTML = '🧩 CNC标准化与积木重构';
+      document.getElementById('sidebar-status-pill').textContent = 'DFM 模块化架构';
+      specTitle.textContent = 'CNC 制造体系 — 模块化积木';
+      specBadge.textContent = 'LEGO-DFM';
+      renderSpecOverlay('modular');
+
+      mainCam.position.set(1100, 650, 1300);
+      if (window.controls) {
+        controls.target.set(0, 400, 0);
+        controls.update();
+      } else {
+        mainCam.lookAt(0, 400, 0);
+      }
+      applyModularConfig('cinema7');
+    }
+    else {
+      // Cutaway or Exploded Mode
+      secArm.classList.remove('active');
+      secCut.classList.add('active');
+      if (secMod) secMod.classList.remove('active');
+      pipMon.style.display = 'none';
+      camBtns.style.display = 'none';
+      armRoot.visible = false;
+      cutawayGroup.visible = true;
+
+      document.getElementById('sidebar-panel-title').innerHTML = '🔬 关节执行器剖切与爆炸透视';
+      document.getElementById('sidebar-status-pill').textContent = '执行器原理示意';
+      specTitle.textContent = '执行器剖切 — 尺寸待核';
+      specBadge.textContent = 'SCHEMATIC';
+      renderSpecOverlay('actuator');
+
+      // Camera glides to Actuator focus
+      mainCam.position.set(130, 340, 260);
+      if (window.controls) {
+        controls.target.set(0, 320, 0);
+        controls.update();
+      } else {
+        mainCam.lookAt(0, 320, 0);
+      }
+
+      if(mode === 'cutaway') {
+        setExplosion(0);
+      } else if(mode === 'exploded') {
+        setExplosion(140);
+      }
+      selectPart(ACTUATOR_PARTS[0]);
+    }
+  }
+  window.switchAppMode = switchAppMode;
+
+  let currentWristMorphology = 'conventional'; // 'conventional' | 'quickrelease'
+
+  function setWristMorphology(morph, btn) {
+    currentWristMorphology = morph;
+
+    // 1. Update UI button states
+    document.querySelectorAll('.morph-btn').forEach(b => b.classList.remove('active'));
+    const btnTopConv = document.getElementById('btn-wrist-conventional');
+    const btnTopQR = document.getElementById('btn-wrist-quickrelease');
+    const btnSideConv = document.getElementById('side-btn-conventional');
+    const btnSideQR = document.getElementById('side-btn-quickrelease');
+    const btnCamGimbal = document.getElementById('btn-cam-gimbal');
+    const morphPill = document.getElementById('hud-morphology-pill');
+    const morphText = document.getElementById('hud-morph-text');
+    const sideBadge = document.getElementById('side-morph-badge');
+    const statusPill = document.getElementById('sidebar-status-pill');
+
+    if (btnTopConv && btnSideConv && btnTopQR && btnSideQR) {
+      if (morph === 'conventional') {
+        btnTopConv.classList.add('active');
+        btnTopQR.classList.remove('active');
+        btnSideConv.classList.add('accent');
+        btnSideQR.classList.remove('accent');
+      } else {
+        btnTopQR.classList.add('active');
+        btnTopConv.classList.remove('active');
+        btnSideQR.classList.add('accent');
+        btnSideConv.classList.remove('accent');
+      }
+    }
+
+    const morphLbl = document.getElementById('dd-morph-label');
+    if (morphLbl) {
+      morphLbl.textContent = (morph === 'conventional') ? '🎬 常规腕部 (整臂一体)' : '🎥 快拆腕部 (独立底座)';
+    }
+
+    if (morph === 'conventional') {
+      // ──【形态一：常规腕部 (Conventional Wrist)】──
+      // 1. 将可快拆总成装回机械臂 J4 关节法兰输出端
+      if (detachableWristModule.parent !== nodeJ4) {
+        if (detachableWristModule.parent) detachableWristModule.parent.remove(detachableWristModule);
+        nodeJ4.add(detachableWristModule);
+      }
+      detachableWristModule.position.set(0, 0, 0);
+      detachableWristModule.rotation.set(0, 0, 0);
+
+      // 2. 隐藏独立底座，保持机械臂完整显示
+      standaloneHeadRoot.visible = false;
+      armRoot.visible = true;
+
+      // 3. 常规腕部下根据 eeModeIndex 保持相机/拓展兔笼显示状态
+      passiveCameraCage.visible = (eeModeIndex === 2 || eeModeIndex === 3);
+      cineRig.visible = (eeModeIndex >= 1);
+      calibRig.visible = (eeModeIndex === 0 || eeModeIndex === 3);
+
+      // 4. 更新界面指示与状态
+      if (btnCamGimbal) btnCamGimbal.style.display = 'none';
+      if (morphPill) {
+        morphPill.style.borderColor = 'rgba(56,189,248,0.5)';
+        morphPill.style.color = 'var(--accent-cyan)';
+      }
+      if (morphText) morphText.textContent = '🎬 常规腕部形态 (随整臂拍摄 · 支持切换兔笼)';
+      if (sideBadge) {
+        sideBadge.textContent = '常规腕部';
+        sideBadge.style.color = 'var(--accent-cyan)';
+        sideBadge.style.background = 'rgba(56,189,248,0.15)';
+      }
+      if (statusPill) statusPill.textContent = '常规 7-DOF 整机';
+
+      // 5. 视角复位至整臂全局视角（留足边距，完整容纳底座与腕部全景）
+      if (window.controls) {
+        controls.target.set(0, 380, 0);
+        mainCam.position.set(1450, 780, 1800);
+        controls.update();
+      }
+
+    } else {
+      // ──【形态二：快拆腕部 (Quick-Release Detachable Wrist & Passive Cage)】──
+      // 1. 将 Link 3、J5-J7 及被动相机笼从 J4 拆下，装载至独立扩展底座
+      if (detachableWristModule.parent !== standaloneHeadRoot) {
+        if (detachableWristModule.parent) detachableWristModule.parent.remove(detachableWristModule);
+        standaloneHeadRoot.add(detachableWristModule);
+      }
+      detachableWristModule.position.set(0, 34, 0); // 稳固插装在立柱顶端快拆锁座上
+      detachableWristModule.rotation.set(0, 0, 0);
+
+      // 2. 独立底座就位在机械臂旁侧工作台上 (X=220, Z=80)
+      standaloneHeadRoot.position.set(220, 20, 80);
+      standaloneHeadRoot.visible = true;
+
+      // 3. 机械臂主体保持显露！J4 侧快拆母头座清晰暴露，直观展示拔出脱开状态
+      armRoot.visible = true;
+
+      // 4. 严格执行用户规范：快拆腕部显露完整专业被动相机笼 (Cage Gimbal)！
+      passiveCameraCage.visible = true;
+      cineRig.visible = true;
+      calibRig.visible = false;
+
+      // 5. 状态文字更新：强调“无增加 J8，J5–J7 直接微动驱动”
+      if (btnCamGimbal) btnCamGimbal.style.display = 'inline-block';
+      if (morphPill) {
+        morphPill.style.borderColor = 'rgba(245,158,11,0.5)';
+        morphPill.style.color = 'var(--accent-amber)';
+      }
+      if (morphText) morphText.textContent = '🎥 快拆腕部形态 (J4拆下 · 独立底座 · 笼式云台 · 无J8)';
+      if (sideBadge) {
+        sideBadge.textContent = '快拆云台';
+        sideBadge.style.color = 'var(--accent-amber)';
+        sideBadge.style.background = 'rgba(245,158,11,0.15)';
+      }
+      if (statusPill) statusPill.textContent = '独立三轴云台 · 无 J8';
+
+      // 6. 视角平滑过渡至同时兼顾臂与独立云台的双机位全局视角
+      if (window.controls) {
+        controls.target.set(110, 240, 40);
+        mainCam.position.set(1400, 720, 1650);
+        controls.update();
+      }
+    }
+
+    // 重新应用角度：确保 J5-J7 的实时旋转同步作用于当前所在母体！
+    applyPose();
+  }
+  window.setWristMorphology = setWristMorphology;
+  window.setWristModuleDetached = function(detached) {
+    setWristMorphology(detached ? 'quickrelease' : 'conventional');
+  };
+
+  function focusGimbalView(btn) {
+    if (window.controls && standaloneHeadRoot.visible) {
+      controls.target.set(220, 320, 80);
+      mainCam.position.set(220 + 460, 320 + 200, 80 + 520);
+      controls.update();
+    }
+  }
+  window.focusGimbalView = focusGimbalView;
+
+  // ────────────────────────────────────────────────────────────
+  // 大梁构型动态切换 (两合一复合管板 vs 经典全铝双板)
+  // ────────────────────────────────────────────────────────────
+  let currentBeamArchitecture = 'hybrid'; // 'hybrid' | 'plate'
+
+  function setBeamArchitecture(type, btn) {
+    currentBeamArchitecture = type;
+    const isHybrid = (type === 'hybrid');
+
+    if (link1_hybrid) link1_hybrid.visible = isHybrid;
+    if (link1_plate) link1_plate.visible = !isHybrid;
+    if (link2_hybrid) link2_hybrid.visible = isHybrid;
+    if (link2_plate) link2_plate.visible = !isHybrid;
+    if (link3_hybrid) link3_hybrid.visible = isHybrid;
+    if (link3_plate) link3_plate.visible = !isHybrid;
+
+    document.querySelectorAll('.beam-toggle-group .morph-btn').forEach(b => b.classList.remove('active'));
+    const btnTopH = document.getElementById('btn-beam-hybrid');
+    const btnTopP = document.getElementById('btn-beam-plate');
+    if (btnTopH && btnTopP) {
+      if (isHybrid) {
+        btnTopH.classList.add('active');
+        btnTopP.classList.remove('active');
+      } else {
+        btnTopP.classList.add('active');
+        btnTopH.classList.remove('active');
+      }
+    }
+    const sideBtnH = document.getElementById('side-btn-beam-hybrid');
+    const sideBtnP = document.getElementById('side-btn-beam-plate');
+    if (sideBtnH && sideBtnP) {
+      sideBtnH.className = isHybrid ? 'btn accent' : 'btn';
+      sideBtnP.className = isHybrid ? 'btn' : 'btn accent';
+    }
+    const badge = document.getElementById('side-beam-badge');
+    if (badge) {
+      badge.textContent = isHybrid ? '两合一复合管板 (推荐)' : '经典全铝双板';
+      badge.style.color = isHybrid ? 'var(--accent-cyan)' : 'var(--text-secondary)';
+    }
+    const beamLbl = document.getElementById('dd-beam-label');
+    if (beamLbl) {
+      beamLbl.textContent = isHybrid ? '🚀 两合一大梁 (零尖角)' : '📐 经典全铝双板';
+    }
+  }
+  window.setBeamArchitecture = setBeamArchitecture;
+
+  // Reconfigurable Modular Configurations
+  function applyModularConfig(cfg) {
+    document.querySelectorAll('#sec-modular .btn').forEach(b => b.classList.remove('accent'));
+    const activeBtn = document.getElementById('btn-cfg-' + cfg);
+    if(activeBtn) activeBtn.classList.add('accent');
+
+    if (cfg === 'gimbal3') {
+      setWristMorphology('quickrelease');
+      angles.J1 = 0; angles.J2 = 25; angles.J3 = -50; angles.J4 = 30; angles.J5 = 0; angles.J6 = 0; angles.J7 = 0;
+      applyPose();
+      focusGimbalView();
+    } else {
+      setWristMorphology('conventional');
+      if(cfg === 'cinema7') {
+        angles.J1 = 15; angles.J2 = 35; angles.J3 = 0; angles.J4 = -65; angles.J5 = 0; angles.J6 = 30; angles.J7 = 0;
+        applyPose();
+        if(window.controls) { controls.target.set(0, 420, 0); controls.update(); }
+      }
+      else if(cfg === 'desktop6') {
+        angles.J1 = 0; angles.J2 = 55; angles.J3 = 0; angles.J4 = -110; angles.J5 = 0; angles.J6 = 55; angles.J7 = 0;
+        applyPose();
+        if(window.controls) { controls.target.set(0, 320, 0); controls.update(); }
+      }
+      else if(cfg === 'turret1') {
+        angles.J1 = 45; angles.J2 = 0; angles.J3 = 0; angles.J4 = 0; angles.J5 = 0; angles.J6 = 0; angles.J7 = 0;
+        applyPose();
+        mainCam.position.set(220, 260, 360);
+      }
+    }
+  }
+  window.applyModularConfig = applyModularConfig;
+
+  // Floating Specs Overlay Content Renderer
+  function renderSpecOverlay(type) {
+    const box = document.getElementById('spec-content');
+    if(type === 'arm') {
+      box.innerHTML = `
+        <div class="spec-row"><span class="spec-key">运动链</span><span class="spec-val">网页示意：7 轴 / 3 段连杆</span></div>
+        <div class="spec-row"><span class="spec-key">轴系约定</span><span class="spec-val">J2–J5 平行水平俯仰轴</span></div>
+        <div class="spec-row"><span class="spec-key">底盘外形</span><span class="spec-val">260×260×20 mm；孔阵仅作视觉标记</span></div>
+        <div class="spec-row"><span class="spec-key">肩部/腕部</span><span class="spec-val">占位几何；板厚、止口与孔系未定</span></div>
+        <div class="spec-row"><span class="spec-key">大梁示意</span><span class="spec-val">双 6 mm 板 + 隔柱；接口尚未设计</span></div>
+        <div class="spec-row"><span class="spec-key">执行器外包络</span><span class="spec-val">J1/2 Ø88；J3/4 Ø76；腕部 Ø56 mm</span></div>
+        <div class="spec-divider"></div>
+        <div class="spec-row"><span class="spec-key">连杆中心距合计</span><span class="spec-val">660 mm；工作空间未求解</span></div>
+        <div class="spec-row"><span class="spec-key">负载/力矩</span><span class="spec-val">未校核；不构成额定值</span></div>
+        <div class="spec-divider"></div>
+        <div class="spec-row"><span class="spec-key">接口/装配</span><span class="spec-val">孔位、工具间隙及扳手可达性待验证</span></div>
+      `;
+    } else if(type === 'modular') {
+      box.innerHTML = `
+        <div class="spec-row"><span class="spec-key">外包络分组</span><span class="spec-val">3 种；不代表已选型执行器</span></div>
+        <div class="spec-row"><span class="spec-key">J1/J2</span><span class="spec-val">Ø88 × 46 mm（模型尺寸）</span></div>
+        <div class="spec-row"><span class="spec-key">J3/J4</span><span class="spec-val">Ø76 × 42 mm（模型尺寸）</span></div>
+        <div class="spec-row"><span class="spec-key">J5/J6/J7</span><span class="spec-val">Ø56 × 34 mm（模型尺寸）</span></div>
+        <div class="spec-divider"></div>
+        <div class="spec-row"><span class="spec-key">材料/紧固件</span><span class="spec-val">待确定牌号、规格、预紧和防松</span></div>
+        <div class="spec-row"><span class="spec-key">制造评估</span><span class="spec-val">尚无生产图、BOM 或报价依据</span></div>
+        <div class="spec-row"><span class="spec-key">装配验证</span><span class="spec-val">工具可达、干涉和线束寿命未测</span></div>
+        <div class="spec-divider"></div>
+        <div class="spec-row"><span class="spec-key">工具法兰</span><span class="spec-val">ISO 外观示意；接口尺寸待复核</span></div>
+      `;
+    } else {
+      box.innerHTML = `
+        <div class="spec-row"><span class="spec-key">视图性质</span><span class="spec-val">非比例原理示意，不对应具体产品</span></div>
+        <div class="spec-row"><span class="spec-key">传动参数</span><span class="spec-val">暂定假设；齿形/速比未验证</span></div>
+        <div class="spec-row"><span class="spec-key">公差与材料</span><span class="spec-val">未基于供应商图纸核对</span></div>
+        <div class="spec-divider"></div>
+        <div class="spec-row"><span class="spec-key">额定扭矩</span><span class="spec-val">未选型</span></div>
+        <div class="spec-row"><span class="spec-key">轴承/中空孔</span><span class="spec-val">结构接口尚未完成</span></div>
+        <div class="spec-divider"></div>
+        <div class="spec-row"><span class="spec-key">装配/质量</span><span class="spec-val">未验证；不可用于采购或加工</span></div>
+      `;
+    }
+  }
+  renderSpecOverlay('arm');
+
+  // ════════════════════════════════════════════════════════════════
+  // 5. KINEMATICS & TORQUE CALCULATOR (Arm Mode)
+  // ════════════════════════════════════════════════════════════════
+  const d2r = d => d * Math.PI / 180;
+
+  function updateTelemetry() {
+    const wp = new THREE.Vector3();
+    if (window.tcpTarget) {
+      window.tcpTarget.getWorldPosition(wp);
+    } else {
+      wp.set(0, 540, 200);
+    }
+    document.getElementById('hud-x').textContent = Math.round(wp.x) + ' mm';
+    document.getElementById('hud-y').textContent = Math.round(wp.y) + ' mm';
+    document.getElementById('hud-z').textContent = Math.round(wp.z) + ' mm';
+    const reach = Math.round(Math.sqrt(wp.x*wp.x + wp.z*wp.z));
+    document.getElementById('hud-reach').textContent = reach + ' mm';
+
+    for(const id of ['J1', 'J2', 'J3', 'J4', 'J5']) {
+      const bar = document.getElementById('tbar-' + id);
+      const lbl = document.getElementById('tnm-' + id);
+      if(bar) {
+        bar.style.width = '0%';
+        bar.style.background = '#64748b';
+      }
+      if(lbl) lbl.textContent = '未校核';
+    }
+  }
+
+  function applyPose() {
+    nodeJ1.rotation.y = d2r(angles.J1); // J1 底座偏航 (Base Yaw, 地面垂直 Y 轴)
+    nodeJ2.rotation.z = d2r(angles.J2); // J2 肩部俯仰 (Shoulder Pitch, 水平 Z 轴)
+    nodeJ3.rotation.z = d2r(angles.J3); // J3 肘部一俯仰 (Elbow 1 Pitch, 水平 Z 轴)
+    nodeJ4.rotation.z = d2r(angles.J4); // J4 肘部二俯仰 (Elbow 2 Pitch, 水平 Z 轴)
+    nodeJ5.rotation.y = d2r(angles.J5); // J5 航向自转 (Gimbal Pan / Forearm Roll, 沿立柱中轴垂直 Y 轴)
+    nodeJ6.rotation.x = d2r(angles.J6); // J6 云台横滚 (Gimbal Roll, 水平 X 轴光轴方向)
+    nodeJ7.rotation.z = d2r(angles.J7); // J7 云台俯仰 (Gimbal Pitch, 水平 Z 轴侧向)
+    updateTelemetry();
+  }
+
+  function setAngles(dict) {
+    for(const k in dict) {
+      angles[k] = dict[k];
+      const s = document.getElementById('slider-' + k);
+      const l = document.getElementById('val-' + k);
+      if(s) s.value = dict[k];
+      if(l) l.textContent = dict[k] + '°';
+    }
+    applyPose();
+  }
+
+  // Presets
+  const PRESETS = {
+    standby: { J1:15, J2:45, J3:-75, J4:55, J5:0, J6:0, J7:0 },
+    stretch: { J1:0,  J2:15, J3:-25, J4:20, J5:0, J6:0, J7:0 },
+    fold:    { J1:0,  J2:85, J3:-130,J4:120,J5:0, J6:0, J7:0 },
+    reveal:  { J1:30, J2:25, J3:-50, J4:35, J5:20, J6:0, J7:-10 },
+    closeup: { J1:-20,J2:45, J3:-85, J4:65, J5:-10, J6:0, J7:5 }
+  };
+  function applyPreset(name) { stopAnim(); setAngles(PRESETS[name] || PRESETS.standby); }
+
+  // Animation Loop
+  let animRunning = false, animT0 = 0;
+  function startOrbit() { animRunning = true; animT0 = performance.now(); }
+  function stopAnim() { animRunning = false; }
+  window.startOrbit = startOrbit; window.stopAnim = stopAnim; window.applyPreset = applyPreset;
+
+  // Camera Views
+  function setCameraView(view, btn) {
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    const curBtn = document.getElementById('btn-cam-' + view);
+    if(curBtn) curBtn.classList.add('active');
+
+    const camNames = {
+      perspective: '🌐 全局视角',
+      flange: '🎯 法兰特写',
+      gimbal: '🎥 云台特写',
+      side: '📐 正侧视图',
+      front: '📐 正前视图',
+      top: '📐 俯视图'
+    };
+    const camLbl = document.getElementById('dd-cam-label');
+    if (camLbl && camNames[view]) camLbl.textContent = camNames[view];
+    if(view === 'perspective') {
+      mainCam.position.set(1450, 780, 1800);
+      if (window.controls) controls.target.set(0, 380, 0);
+      else mainCam.lookAt(0, 380, 0);
+    }
+    else if(view === 'flange' || view === 'head' || view === 'wrist' || view === 'cage') {
+      const wp = new THREE.Vector3();
+      if (window.tcpTarget) window.tcpTarget.getWorldPosition(wp);
+      else if (window.toolFlangeGlobal) window.toolFlangeGlobal.getWorldPosition(wp);
+      else wp.set(0, 540, 200);
+      mainCam.position.set(wp.x + 160, wp.y + 90, wp.z + 200);
+      if (window.controls) {
+        controls.target.set(wp.x - 30, wp.y, wp.z);
+        controls.update();
+      } else {
+        mainCam.lookAt(wp.x - 30, wp.y, wp.z);
+      }
+    }
+    else if(view === 'side') {
+      mainCam.position.set(1700, 450, 0);
+      if (window.controls) controls.target.set(0, 420, 0);
+      else mainCam.lookAt(0, 420, 0);
+    }
+    else if(view === 'front') {
+      mainCam.position.set(0, 450, 1700);
+      if (window.controls) controls.target.set(0, 420, 0);
+      else mainCam.lookAt(0, 420, 0);
+    }
+    else if(view === 'top') {
+      mainCam.position.set(0, 2100, 1);
+      if (window.controls) controls.target.set(0, 200, 0);
+      else mainCam.lookAt(0, 200, 0);
+    }
+    if (window.controls) controls.update();
+  }
+  window.setCameraView = setCameraView;
+
+  // ════════════════════════════════════════════════════════════════
+  // 6. INTERACTIVE ORBIT CONTROLS & ZOOM ENGINE
+  // ════════════════════════════════════════════════════════════════
+  let controls = null;
+  if (typeof THREE.OrbitControls !== 'undefined') {
+    controls = new THREE.OrbitControls(mainCam, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.screenSpacePanning = true;
+    controls.minDistance = 35;
+    controls.maxDistance = 5500;
+    controls.target.set(0, 380, 0);
+    window.controls = controls;
+    window._hasOrbitControls = true;
+  }
+
+  // Universal Zoom Function (Works with on-screen buttons, wheel, trackpad, keyboard)
+  function zoomView(factor) {
+    const target = (controls && controls.target) ? controls.target : (currentMode === 'arm' ? new THREE.Vector3(0, 540, 0) : new THREE.Vector3(0, 320, 0));
+    const offset = mainCam.position.clone().sub(target);
+    offset.multiplyScalar(factor);
+    const d = offset.length();
+    if (d > 25 && d < 6500) {
+      mainCam.position.copy(target).add(offset);
+      if (controls) controls.update();
+      else mainCam.lookAt(target);
+    }
+  }
+  window.zoomView = zoomView;
+
+  // Reset Camera View
+  function resetView() {
+    if (currentMode === 'arm') {
+      setCameraView('perspective');
+    } else {
+      if (controls) controls.target.set(0, 320, 0);
+      mainCam.position.set(130, 340, 260);
+      if (controls) controls.update();
+      else mainCam.lookAt(0, 320, 0);
+    }
+  }
+  window.resetView = resetView;
+
+  // Wheel & Trackpad Pinch Zoom with e.preventDefault() & { passive: false }
+  const vpContainer = document.getElementById('viewport-container');
+  function handleWheelZoom(e) {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.10 : 0.90;
+    zoomView(factor);
+  }
+  canvas3d.addEventListener('wheel', handleWheelZoom, { passive: false });
+  vpContainer.addEventListener('wheel', handleWheelZoom, { passive: false });
+
+  // Keyboard Zoom Shortcuts (+ / - / R)
+  window.addEventListener('keydown', e => {
+    if (e.key === '+' || e.key === '=' || e.key === 'q' || e.key === 'Q') zoomView(0.85);
+    if (e.key === '-' || e.key === '_' || e.key === 'e' || e.key === 'E') zoomView(1.15);
+    if (e.key === 'r' || e.key === 'R') resetView();
+  });
+
+  // Fallback mouse drag rotation if OrbitControls is unavailable
+  let isDragging = false, prevX = 0, prevY = 0;
+  canvas3d.addEventListener('mousedown', e => {
+    if (e.button === 0) { isDragging = true; prevX = e.clientX; prevY = e.clientY; }
+  });
+  window.addEventListener('mouseup', () => isDragging = false);
+  canvas3d.addEventListener('mousemove', e => {
+    if (!isDragging || window._hasOrbitControls) return;
+    const dx = e.clientX - prevX, dy = e.clientY - prevY;
+    prevX = e.clientX; prevY = e.clientY;
+
+    const target = currentMode === 'arm' ? new THREE.Vector3(0, 350, 0) : new THREE.Vector3(0, 320, 0);
+    const offset = mainCam.position.clone().sub(target);
+    const phi = Math.atan2(offset.x, offset.z) - dx * 0.0055;
+    const theta = Math.max(0.04, Math.min(1.54, Math.atan2(Math.sqrt(offset.x**2 + offset.z**2), offset.y) + dy * 0.0055));
+    const r = offset.length();
+    mainCam.position.set(
+      target.x + r * Math.sin(theta) * Math.sin(phi),
+      target.y + r * Math.cos(theta),
+      target.z + r * Math.sin(theta) * Math.cos(phi)
+    );
+    mainCam.lookAt(target);
+  });
+
+  window.addEventListener('resize', () => {
+    mainCam.aspect = canvas3d.clientWidth / canvas3d.clientHeight;
+    mainCam.updateProjectionMatrix();
+    renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+  });
+
+  function renderLoop(time) {
+    requestAnimationFrame(renderLoop);
+    if(controls) {
+      controls.update();
+    }
+    if(animRunning && currentMode === 'arm') {
+      const t = (time - animT0) / 1000;
+      setAngles({
+        J1: Math.sin(t*0.7)*50,
+        J2: 35 + Math.cos(t*0.5)*18,
+        J3: -65 + Math.sin(t*0.6)*25,
+        J4: Math.sin(t*0.9)*25,
+        J5: 45 + Math.cos(t*0.8)*25,
+        J6: -15 + Math.sin(t*0.5)*15,
+        J7: (t*30)%360 - 180
+      });
+    }
+
+    if(currentMode === 'cutaway' || currentMode === 'exploded') {
+      cutawayGroup.rotation.y = Math.sin(time * 0.0004) * 0.25;
+    }
+
+    renderer.render(scene, mainCam);
+    if(currentMode === 'arm') {
+      pipRenderer.render(scene, cineCam);
+    }
+  }
+
+  applyPreset('standby');
+  const urlParams = new URLSearchParams(window.location.search);
+  const qCam = urlParams.get('cam') || urlParams.get('view');
+  const qMorph = urlParams.get('morph') || urlParams.get('wrist');
+
+  if (qMorph === 'quickrelease' || qMorph === 'qr' || qMorph === 'gimbal') {
+    setWristMorphology('quickrelease');
+    if (qCam === 'gimbal' || qCam === 'cage') {
+      focusGimbalView();
+    }
+  } else if (qMorph === 'conventional') {
+    setWristMorphology('conventional');
+  }
+
+  if (qCam === 'flange' || qCam === 'wrist') {
+    setCameraView('flange');
+  } else if (qCam === 'base') {
+    mainCam.position.set(160, 120, 180);
+    if (window.controls) {
+      controls.target.set(0, 56, 0);
+      controls.update();
+    }
+  } else if ((qCam === 'gimbal' || qCam === 'cage') && qMorph !== 'quickrelease') {
+    setWristMorphology('quickrelease');
+    focusGimbalView();
+  }
+
+  requestAnimationFrame(renderLoop);
+  </script>
+</body>
+</html>

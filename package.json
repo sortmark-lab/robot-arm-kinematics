@@ -1,0 +1,27 @@
+{
+  "name": "robot-arm-kinematics",
+  "version": "1.0.0",
+  "description": "Interactive 7-DoF (Redundant) and 6-DoF (Industrial) Robotic Arm Kinematics & Spatial Simulator by SORTMARK",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve -l 3000 ."
+  },
+  "keywords": [
+    "robotics",
+    "kinematics",
+    "forward-kinematics",
+    "6dof-robot",
+    "7dof-robot",
+    "robotic-arm",
+    "spatial-computing",
+    "threejs",
+    "sortmark"
+  ],
+  "author": "SORTMARK <contact@sortmark.com> (https://sortmark.com)",
+  "homepage": "https://sortmark.com",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sortmark-lab/robot-arm-kinematics.git"
+  }
+}
